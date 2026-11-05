@@ -101,7 +101,8 @@ class NoteSearch(private val dao: NoteDao, private val embedQuery: suspend (Stri
         }
 
         fun snippet(s: String): String {
-            val flat = s.replace(Regex("[#*_`>|]"), "").replace(Regex("\\s+"), " ").trim()
+            val flat = s.lines().joinToString(" ") { it.trim().replace(Regex("^([-*+] (\\[[ xX]\\] )?|\\d+[.)] )"), "") }
+                .replace(Regex("[#*_`>|]"), "").replace(Regex("\\s+"), " ").trim()
             return if (flat.length <= SNIPPET) flat else flat.take(SNIPPET).trimEnd() + "…"
         }
     }

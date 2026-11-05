@@ -121,7 +121,7 @@ class NotesTest {
     }
 
     @Test fun audioFileIsTranscribed() = runBlocking {
-        val wav = File(ctx.cacheDir, "tone.wav").apply { writeBytes(Pcm.toWav(tone(7_000))) }
+        val wav = File(ctx.cacheDir, "tone.wav").apply { writeBytes(Pcm.toWav(tone(21_000))) }
         val id = repo.addAudio(Uri.fromFile(wav))
         val n = dao.get(id)!!
         assertEquals(NoteKind.AUDIO, n.kind)
@@ -129,9 +129,9 @@ class NotesTest {
         assertEquals(SourceJob.Outcome.DONE, SourceJob(ctx, dao, NoNet, models, settings, jobs, { repo.audioDir }).run(id))
         val done = dao.get(id)!!
         assertEquals(JobState.DONE, done.sourceState)
-        assertEquals(3, dao.cues(id).size)
+        assertEquals(10, dao.cues(id).size)
         assertTrue(done.body.startsWith("**0:00** line at 0"))
-        assertTrue((done.durationMs ?: 0) in 6_500..7_500)
+        assertTrue((done.durationMs ?: 0) in 20_500..21_500)
         assertTrue(SummaryJob.input(done, dao.cues(id).map { io.github.taehunkim.jogakbo.audio.Cue(it.startMs, it.endMs, it.text) }).startsWith("line at 0 line at 2"))
         assertEquals(listOf(id), jobs.summaries) // audio is summarized by default
         repo.deleteAudio(id)

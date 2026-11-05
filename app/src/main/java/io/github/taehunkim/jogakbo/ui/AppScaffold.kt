@@ -68,7 +68,7 @@ fun AppScaffold(target: Target?, onTargetHandled: () -> Unit) {
         composable("note/{id}", listOf(navArgument("id") { type = NavType.LongType })) { e ->
             val id = e.arguments!!.getLong("id")
             NoteDetailScreen(
-                id, onBack = { nav.popBackStack() },
+                id, onBack = { nav.back() },
                 onEdit = { nav.navigate("edit/$id/NOTE") }, onEditSummary = { nav.navigate("edit/$id/SUMMARY") },
             )
         }
@@ -76,16 +76,20 @@ fun AppScaffold(target: Target?, onTargetHandled: () -> Unit) {
             val id = e.arguments!!.getLong("id")
             val t = EditTarget.valueOf(e.arguments!!.getString("target") ?: "NOTE")
             val initial = remember { if (id == 0L) newMemoText.also { newMemoText = null } else null }
-            EditorScreen(id, t, initial, onDone = { nav.popBackStack() }) { saved ->
-                if (id == 0L) { nav.popBackStack(); nav.navigate("note/$saved") } else nav.popBackStack()
+            EditorScreen(id, t, initial, onDone = { nav.back() }) { saved ->
+                if (id == 0L) { nav.back(); nav.navigate("note/$saved") } else nav.back()
             }
         }
         composable("record") {
-            RecordScreen(onBack = { nav.popBackStack() }) { noteId -> nav.popBackStack(); nav.navigate("note/$noteId") }
+            RecordScreen(onBack = { nav.back() }) { noteId -> nav.back(); nav.navigate("note/$noteId") }
         }
         composable(ROUTE_SETTINGS, listOf(navArgument("tab") { type = NavType.IntType; defaultValue = 0 })) { e ->
-            SettingsScreen(onBack = { nav.popBackStack() }, initialTab = e.arguments?.getInt("tab") ?: 0)
+            SettingsScreen(onBack = { nav.back() }, initialTab = e.arguments?.getInt("tab") ?: 0)
         }
     }
 }
 
+/** Back one screen, but never off the notes list (a double tap on Back would otherwise leave an empty screen). */
+private fun androidx.navigation.NavController.back() {
+    if (previousBackStackEntry != null) popBackStack()
+}

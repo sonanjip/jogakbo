@@ -30,7 +30,8 @@ class SummarizerTest {
         assertTrue(out.startsWith("Summary of")) // code fence removed
         val (system, user) = m.calls[0]
         assertTrue(user.startsWith("Instructions for this summary:\nFocus on X"))
-        assertTrue(system.contains("Be brief.") && system.indexOf("Be brief.") < system.indexOf("Write in Korean"))
+        assertTrue(system.contains("Be brief.") && system.indexOf("Be brief.") < system.indexOf("in Korean"))
+        assertTrue(user.endsWith("(Write the summary in Korean.)"))
         assertTrue(system.contains("Markdown"))
     }
 
@@ -56,8 +57,13 @@ class SummarizerTest {
     }
 
     @Test fun originalLanguageLine() {
-        val s = PromptBuilder.system(req("x").copy(language = SummaryLanguage.ORIGINAL))
-        assertTrue(s.endsWith("Write in the same language as the text (if it mixes languages, use the main one)."))
+        val en = req("Plain English text here.").copy(language = SummaryLanguage.ORIGINAL)
+        assertTrue(PromptBuilder.system(en).endsWith("Write in the same language as the text (if it mixes languages, use the main one)."))
+        val ko = req("# 제주 여행 계획\n- 금요일 오전 9시 김포공항 출발, Gimpo").copy(language = SummaryLanguage.ORIGINAL)
+        assertTrue(PromptBuilder.system(ko).endsWith("Write the whole summary in Korean, the language of the text, including the first sentence."))
+        assertTrue(PromptBuilder.user(ko, ko.text).endsWith("(Write the summary in Korean.)"))
+        assertEquals("Japanese", PromptBuilder.detectLanguage("今日はいい天気ですね"))
+        assertEquals("Chinese", PromptBuilder.detectLanguage("今天天气很好"))
     }
 
     @Test fun koreanCountsAsMoreTokens() {

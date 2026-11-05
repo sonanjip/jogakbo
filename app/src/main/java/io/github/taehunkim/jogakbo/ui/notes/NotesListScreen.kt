@@ -93,6 +93,7 @@ fun NotesListScreen(
 ) {
     val c = rememberContainer()
     val ctx = LocalContext.current
+    val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val notes by c.db.noteDao().observeAll().collectAsStateWithLifecycle(emptyList())
     var query by rememberSaveable { mutableStateOf("") }
@@ -191,7 +192,14 @@ fun NotesListScreen(
     addAudio?.let { uri ->
         AddDialog(title = stringResource(R.string.add_audio), initialUrl = null, askUrl = false, defaultSummarize = autoAudio, onDismiss = { addAudio = null }) { _, prompt, summarize ->
             addAudio = null
-            scope.launch { runCatching { c.notes.addAudio(uri, prompt, summarize) }.onSuccess { id -> onMain { onOpen(id) } } }
+            scope.launch {
+                runCatching { c.notes.addAudio(uri, prompt, summarize) }
+                    .onSuccess { id -> onMain { onOpen(id) } }
+                    .onFailure { e ->
+                        android.util.Log.w("Jogakbo", "cannot read $uri", e)
+                        onMain { android.widget.Toast.makeText(ctx, res.getString(R.string.audio_cannot_read, e.message ?: ""), android.widget.Toast.LENGTH_LONG).show() }
+                    }
+            }
         }
     }
 }

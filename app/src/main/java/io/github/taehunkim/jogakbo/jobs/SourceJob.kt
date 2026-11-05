@@ -74,6 +74,9 @@ class SourceJob(
         if (n.sourceState != JobState.DONE) return
         val asked = runCatching { JSONObject(n.sourceMeta ?: "{}").takeIf { it.has("summarize") }?.optBoolean("summarize") }.getOrNull()
         val want = asked ?: (n.summaryPrompt != null || settings.autoSummary(n.kind).first())
+        // nothing to summarize (a recording without speech, an empty page): no job, no "failed" badge
+        val text = SummaryJob.input(n, dao.cues(noteId).map { Cue(it.startMs, it.endMs, it.text) })
+        if (text.replace(Regex("\\s+"), "").length < SummaryJob.MIN_CHARS || n.kind == NoteKind.AUDIO && dao.cues(noteId).isEmpty()) return
         if (want && n.summary == null) {
             dao.setSummaryState(noteId, JobState.QUEUED)
             jobs.summarize(noteId)

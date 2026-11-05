@@ -23,8 +23,10 @@ language (ORIGINAL or APP), auto-summary per kind, onboarding, approvals of othe
 
 - **Source** (`jobs/SourceJob`): makes the original.
   - Link: `fetch/UrlConnectionHttp` (redirects, 5 MB cap, charset from header or meta) → `fetch/ArticleExtractor`
-    (drops navigation, asides, footers and ads, takes the element with the most paragraph text, weighted against
-    link density) → `fetch/HtmlToMarkdown`.
+    (drops navigation, asides, footers, ads, reference lists and wiki chrome; takes the element with the most paragraph
+    text, weighted against link density, then walks up through wrappers and takes an ancestor that holds at least 1.5×
+    the paragraph text, so an article split into sections stays whole; trailing "See also / References / External
+    links" sections are cut) → `fetch/HtmlToMarkdown`.
   - YouTube (`fetch/YouTube`): the watch page (`ytInitialPlayerResponse`: title, channel, description, length, and
     the API key), then the player API as the Android app asks (`youtubei/v1/player`, client `ANDROID`) for the caption
     tracks; track choice: a track written by people in the spoken language (the language of the generated track),
@@ -32,12 +34,14 @@ language (ORIGINAL or APP), auto-summary per kind, onboarding, approvals of othe
     (`mergeCues`). No captions: the description only, with a notice.
   - Audio file: copied into `files/audio`, decoded to 16 kHz mono PCM (`audio/AudioDecoder`, MediaCodec), transcribed
     by OndolSaem (`transcribe` streams cues; a cut-off run resumes after the last saved cue).
-  - Then `afterSource` starts the summary when the user asked (`sourceMeta.summarize`, or a prompt) or the setting
+  - Then `afterSource` starts the summary (unless there is nothing to summarize, e.g. a recording without speech) when the user asked (`sourceMeta.summarize`, or a prompt) or the setting
     for the kind says so.
 - **Summary** (`jobs/SummaryJob` → `summary/Summarizer`): input is the original (for transcripts the plain lines,
   without times). `summary/PromptBuilder` builds the system prompt: task and source kind, the Markdown format, the
   user's global instructions, and the language line last; the note's own instruction goes in the user turn above the
-  text. `summary/Tokens` estimates tokens (Hangul/CJK one per character, else 3.2 characters per token). Text that
+  text, and a one-line language reminder below it. For "same language as the original" the language is named when
+  the script shows it (Hangul → Korean, kana → Japanese, Han → Chinese): a small model otherwise drifts into the
+  English of the prompt. `summary/Tokens` estimates tokens (Hangul/CJK one per character, else 3.2 characters per token). Text that
   fits `contextTokens − prompt − answer reserve` is one call; longer text is cut at paragraph, line, sentence and
   word boundaries, each part becomes bullet notes (map), and the notes are summarized (reduce, again in parts if
   needed, up to 3 levels). An "exceeds" error from the host retries with parts 0.6× as large. Each call has a fresh

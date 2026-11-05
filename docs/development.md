@@ -7,7 +7,12 @@
 - Instrumented tests: `./gradlew installDebug installDebugAndroidTest`, then
   `adb shell am instrument -w io.github.taehunkim.jogakbo.test/androidx.test.runner.AndroidJUnitRunner`
   (`connectedDebugAndroidTest` uninstalls the app at the end). They use an in-memory database and fake models,
-  speech and network (`androidTest/.../Fakes.kt`), plus the real UI (`NavigationTest`).
+  speech and network (`androidTest/.../Fakes.kt`), plus the real UI (`NavigationTest`). `RealModelTest` feeds a
+  recording from a file to OndolSaem's real speech model and checks that lines arrive while it records; it is skipped
+  without the model or the fixture: `adb push long_talk.wav /data/local/tmp/` (Nunsori's `make-audio-fixtures.sh`), then
+  `adb shell run-as io.github.taehunkim.jogakbo cp /data/local/tmp/long_talk.wav cache/`.
+- The emulator's host microphone (`adb emu avd hostmicon`) may only deliver silence (macOS microphone access); use
+  `RealModelTest` or an audio file for transcription checks.
 - Scripts: `scripts/run.sh` (install and start), `scripts/screenshot.sh`, `scripts/logcat.sh`, `scripts/emu-start.sh`.
 - Real-model checks need OndolSaem with a language, speech and embedding model on the device; the emulator runs
   them on the CPU (slow).

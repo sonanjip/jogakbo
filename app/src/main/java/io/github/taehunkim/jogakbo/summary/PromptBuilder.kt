@@ -36,9 +36,42 @@ object PromptBuilder {
             "Keep names, numbers, dates, decisions and to-dos exact. Do not add anything that is not in the text. " +
             "Do not repeat the title, do not wrap the answer in a code block, and output only the summary."
 
+    /**
+     * The target language. For "same as the original" the language is named when the script tells it (small models
+     * otherwise drift into English for an English prompt): Hangul → Korean, kana → Japanese, Han only → Chinese.
+     */
     fun languageLine(req: SummaryRequest): String = when (req.language) {
-        SummaryLanguage.ORIGINAL -> "Write in the same language as the text (if it mixes languages, use the main one)."
-        SummaryLanguage.APP -> "Write in ${req.appLanguage}, even when the text is in another language."
+        SummaryLanguage.ORIGINAL -> detectLanguage(req.text)?.let { "Write the whole summary in $it, the language of the text, including the first sentence." }
+            ?: "Write in the same language as the text (if it mixes languages, use the main one)."
+        SummaryLanguage.APP -> "Write the whole summary in ${req.appLanguage}, even when the text is in another language."
+    }
+
+    /** Korean, Japanese or Chinese when that script makes up a good share of the letters; null otherwise (Latin etc.). */
+    fun detectLanguage(text: String): String? {
+        var hangul = 0; var kana = 0; var han = 0; var letters = 0
+        for (c in text) {
+            if (!Character.isLetter(c)) continue
+            letters++
+            when (Character.UnicodeScript.of(c.code)) {
+                Character.UnicodeScript.HANGUL -> hangul++
+                Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA -> kana++
+                Character.UnicodeScript.HAN -> han++
+                else -> Unit
+            }
+        }
+        if (letters == 0) return null
+        return when {
+            hangul >= letters * 0.2 -> "Korean"
+            kana >= letters * 0.1 -> "Japanese"
+            han >= letters * 0.3 -> "Chinese"
+            else -> null
+        }
+    }
+
+    /** A short reminder after the text (the model reads it last). */
+    fun languageReminder(req: SummaryRequest): String? = when (req.language) {
+        SummaryLanguage.ORIGINAL -> detectLanguage(req.text)?.let { "(Write the summary in $it.)" }
+        SummaryLanguage.APP -> "(Write the summary in ${req.appLanguage}.)"
     }
 
     private fun globalBlock(req: SummaryRequest): String? =
@@ -68,5 +101,6 @@ object PromptBuilder {
         req.notePrompt?.trim()?.takeIf { it.isNotEmpty() }?.let { append("Instructions for this summary:\n").append(it).append("\n\n") }
         if (req.title.isNotBlank()) append("Title: ").append(req.title.trim()).append("\n\n")
         append("Text:\n").append(text.trim())
+        languageReminder(req)?.let { append("\n\n").append(it) }
     }
 }

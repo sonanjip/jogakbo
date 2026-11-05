@@ -194,4 +194,5 @@
     <string name="video_description">설명</string>
     <string name="video_no_subtitles">이 영상에는 자막이 없어 설명만 저장했습니다.</string>
     <string name="video_transcript">자막</string>
+    <string name="audio_cannot_read">오디오 파일을 읽을 수 없습니다: %1$s</string>
 </resources>

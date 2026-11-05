@@ -27,4 +27,7 @@ with a chosen embedding time, ZIP/Markdown export and import, and the notes SDK 
 - Article extraction is heuristic: pages built by JavaScript, paywalls and some layouts give little text.
 - Summary length and quality depend on OndolSaem's language model and its context window (4096 tokens by default);
   long texts are summarized in parts.
-- On the emulator (CPU) live transcription lags behind and summaries take minutes.
+- On the emulator (CPU) live transcription lags behind and summaries take minutes (about 1–2 minutes for a short note
+  with Gemma 4 E2B).
+- The small default language model follows simple instructions but not always formatting requests (asked for a table, it
+  wrote a list).

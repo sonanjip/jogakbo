@@ -1,0 +1,27 @@
+# Build / IDE
+*.iml
+.gradle/
+.idea/
+/build/
+**/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+/local.properties
+.DS_Store
+.kotlin/
+
+# Databases and keys
+*.db
+*.db-shm
+*.db-wal
+*.jks
+*.keystore
+
+# Generated at build time (Settings › About)
+/app/src/main/assets/licenses.txt
+
+# Local Claude Code state
+.claude/settings.local.json
+.claude/settings.json
+.codex/

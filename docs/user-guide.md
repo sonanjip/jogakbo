@@ -1,0 +1,46 @@
+# User guide
+
+## First start
+
+Jogakbo shows what it needs: OndolSaem with its models (language model for summaries, speech recognition for
+recordings, embedding model for search by meaning) and the notification and microphone permissions. Memos, links,
+word search and export work without OndolSaem.
+
+## Adding notes (+ button)
+
+- **New memo**: a title (empty: the first line is used) and the text. The toolbar above the text adds Markdown:
+  H1–H3, bold, italic, strikethrough, bullet and numbered lists, checklists, quotes, code, links and dividers; tap
+  again to remove. *Preview* shows the result. Tick *Make a summary after saving* to summarize it.
+- **Web or YouTube link**: paste an address, or share a link from the browser or YouTube app to Jogakbo. Choose
+  whether to summarize and add an instruction for this summary ("make a table of the prices").
+- **Record**: the transcript appears line by line while you record (it lags a few seconds). Pause and Stop are on
+  the screen and in the notification; recording continues with the screen off.
+- **Audio file**: pick a file or share one from a recorder app; it is transcribed in the background.
+
+## A note
+
+The summary is on top (fold it with the arrow), the original below. *Summarize again* takes a new instruction; if
+you edited the summary, it asks before replacing your version. *Edit summary* opens the same editor as memos.
+Recordings have a player: tap a line to play from there. YouTube notes list the subtitles: tap a line to open the
+video at that time. A link or audio file that failed shows *Retry*. The ⋮ menu shares the note as Markdown, deletes
+its audio (keeping the text) or deletes the note.
+
+## Search
+
+Type in the search field: notes match by words right away and by meaning once they are embedded (Settings ›
+Notes › Search by meaning). The chips filter by kind.
+
+## Settings
+
+- **Notes**: instructions for every summary, the summary language (same as the original, or the app's language),
+  which kinds are summarized automatically, and when notes are embedded (right after a change, while charging and
+  idle, once a day at a time, or only with *Embed now*).
+- **Data**: export a ZIP (one Markdown file per note; summaries and audio optional) and import a ZIP or a Markdown
+  or text file. Notes already here are only replaced by newer versions.
+- **Connections**: OndolSaem and its models; other apps that asked for your notes (allow, deny, forget).
+- **App**: permissions, language, licenses.
+
+## With Malbotdari
+
+Malbotdari (0.2.0 or newer) can search and read your notes in a chat ("find my notes about the Jeju trip"). Its
+result cards open the note here. It is signed with the same key, so it connects without asking.

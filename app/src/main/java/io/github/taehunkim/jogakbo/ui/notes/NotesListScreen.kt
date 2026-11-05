@@ -1,0 +1,260 @@
+package io.github.taehunkim.jogakbo.ui.notes
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.taehunkim.jogakbo.R
+import io.github.taehunkim.jogakbo.data.db.JobState
+import io.github.taehunkim.jogakbo.data.db.NoteEntity
+import io.github.taehunkim.jogakbo.data.db.NoteKind
+import io.github.taehunkim.jogakbo.record.RecordingService
+import io.github.taehunkim.jogakbo.rememberContainer
+import io.github.taehunkim.jogakbo.search.NoteFilter
+import io.github.taehunkim.jogakbo.search.NoteHit
+import io.github.taehunkim.jogakbo.search.NoteSearch
+import io.github.taehunkim.jogakbo.ui.common.formatDate
+import io.github.taehunkim.jogakbo.ui.common.kindIcon
+import io.github.taehunkim.jogakbo.ui.common.kindLabel
+import kotlinx.coroutines.delay
+import io.github.taehunkim.jogakbo.ui.common.onMain
+import kotlinx.coroutines.launch
+
+/** What another app shared, waiting for the user to add it. */
+sealed interface Shared {
+    data class Link(val url: String) : Shared
+    data class Text(val text: String) : Shared
+    data class Audio(val uri: Uri) : Shared
+}
+
+/** The notes, newest first; search by meaning and words; the + menu adds memos, links, recordings and audio files. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NotesListScreen(
+    onOpen: (Long) -> Unit, onNewMemo: (String?) -> Unit, onRecording: () -> Unit, onSettings: () -> Unit,
+    shared: Shared? = null, onSharedHandled: () -> Unit = {},
+) {
+    val c = rememberContainer()
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val notes by c.db.noteDao().observeAll().collectAsStateWithLifecycle(emptyList())
+    var query by rememberSaveable { mutableStateOf("") }
+    var kinds by remember { mutableStateOf(emptySet<NoteKind>()) }
+    var hits by remember { mutableStateOf<List<NoteHit>?>(null) }
+    var menu by remember { mutableStateOf(false) }
+    var addLink by remember { mutableStateOf<String?>(null) }
+    var addAudio by remember { mutableStateOf<Uri?>(null) }
+    val autoLink by c.settings.autoSummary(NoteKind.LINK).collectAsStateWithLifecycle(true)
+    val autoAudio by c.settings.autoSummary(NoteKind.AUDIO).collectAsStateWithLifecycle(true)
+
+    LaunchedEffect(shared) {
+        when (shared) {
+            is Shared.Link -> addLink = shared.url
+            is Shared.Audio -> addAudio = shared.uri
+            is Shared.Text -> onNewMemo(shared.text)
+            null -> return@LaunchedEffect
+        }
+        onSharedHandled()
+    }
+    LaunchedEffect(query, kinds, notes.size) {
+        if (query.isBlank()) { hits = null; return@LaunchedEffect }
+        delay(300) // typing
+        hits = runCatching { c.search.search(query, NoteFilter(kinds)) }.getOrDefault(emptyList())
+    }
+
+    val pickAudio = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) addAudio = uri }
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) { RecordingService.start(ctx); onRecording() }
+    }
+    fun record() {
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { RecordingService.start(ctx); onRecording() }
+        else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+    }
+    val recording by RecordingService.current.collectAsStateWithLifecycle()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                actions = { IconButton(onClick = onSettings, modifier = Modifier.testTag("open_settings")) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) } },
+            )
+        },
+        floatingActionButton = {
+            Box {
+                FloatingActionButton(onClick = { menu = true }, modifier = Modifier.testTag("add_menu")) { Icon(Icons.Filled.Add, stringResource(R.string.add)) }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_memo)) }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menu = false; onNewMemo(null) }, modifier = Modifier.testTag("add_memo"))
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_link)) }, leadingIcon = { Icon(Icons.Filled.Link, null) }, onClick = { menu = false; addLink = "" }, modifier = Modifier.testTag("add_link"))
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_recording)) }, leadingIcon = { Icon(Icons.Filled.Mic, null) }, onClick = { menu = false; record() }, modifier = Modifier.testTag("add_recording"))
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_audio)) }, leadingIcon = { Icon(Icons.Filled.LibraryMusic, null) }, onClick = { menu = false; pickAudio.launch("audio/*") }, modifier = Modifier.testTag("add_audio"))
+                }
+            }
+        },
+    ) { pad ->
+        Column(Modifier.padding(pad).fillMaxSize()) {
+            OutlinedTextField(
+                value = query, onValueChange = { query = it }, singleLine = true,
+                leadingIcon = { Icon(Icons.Filled.Search, null) },
+                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, stringResource(R.string.action_clear)) } },
+                placeholder = { Text(stringResource(R.string.search_hint)) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("search"),
+            )
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NoteKind.entries.forEach { k ->
+                    FilterChip(selected = k in kinds, onClick = { kinds = if (k in kinds) kinds - k else kinds + k }, label = { Text(stringResource(kindLabel(k))) }, leadingIcon = { Icon(kindIcon(k), null, Modifier.size(18.dp)) })
+                }
+            }
+            recording?.let { r ->
+                TextButton(onClick = onRecording, modifier = Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.recording_in_progress)) }
+            }
+            val shown: List<Pair<NoteEntity, String?>> = hits?.map { it.note to it.snippet }
+                ?: notes.filter { kinds.isEmpty() || it.kind in kinds }.map { it to null }
+            if (shown.isEmpty()) {
+                Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Text(stringResource(if (hits != null) R.string.search_none else R.string.notes_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else LazyColumn(Modifier.fillMaxSize().testTag("notes_list")) {
+                items(shown, key = { it.first.id }) { (n, snippet) ->
+                    NoteRow(n, snippet) { onOpen(n.id) }
+                    HorizontalDivider()
+                }
+            }
+        }
+    }
+
+    addLink?.let { initial ->
+        AddDialog(
+            title = stringResource(R.string.add_link), initialUrl = initial, askUrl = true,
+            defaultSummarize = autoLink, onDismiss = { addLink = null },
+        ) { url, prompt, summarize ->
+            addLink = null
+            scope.launch { val id = c.notes.addLink(url, prompt, summarize); onMain { onOpen(id) } }
+        }
+    }
+    addAudio?.let { uri ->
+        AddDialog(title = stringResource(R.string.add_audio), initialUrl = null, askUrl = false, defaultSummarize = autoAudio, onDismiss = { addAudio = null }) { _, prompt, summarize ->
+            addAudio = null
+            scope.launch { runCatching { c.notes.addAudio(uri, prompt, summarize) }.onSuccess { id -> onMain { onOpen(id) } } }
+        }
+    }
+}
+
+@Composable
+private fun NoteRow(n: NoteEntity, snippet: String?, onClick: () -> Unit) {
+    val ctx = LocalContext.current
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp).testTag("note_${n.id}"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(kindIcon(n.kind), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(n.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val preview = snippet ?: NoteSearch.snippet(n.summary ?: n.body)
+            if (preview.isNotBlank()) Text(preview, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(formatDate(ctx, n.createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                status(n)?.let { Text(stringResource(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary) }
+            }
+            if (n.sourceState == JobState.RUNNING || n.summaryState == JobState.RUNNING) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 4.dp))
+        }
+    }
+}
+
+/** A short status of the note's background work, or null when there is nothing to say. */
+fun status(n: NoteEntity): Int? = when {
+    n.sourceState == JobState.QUEUED || n.sourceState == JobState.RUNNING ->
+        if (n.kind == NoteKind.AUDIO) R.string.state_transcribing else R.string.state_fetching
+    n.sourceState == JobState.FAILED -> R.string.state_source_failed
+    n.summaryState == JobState.QUEUED || n.summaryState == JobState.RUNNING -> R.string.state_summarizing
+    n.summaryState == JobState.FAILED -> R.string.state_summary_failed
+    else -> null
+}
+
+/** Adding a link or an audio file: the address, an optional instruction for the summary, and whether to summarize. */
+@Composable
+fun AddDialog(
+    title: String, initialUrl: String?, askUrl: Boolean, defaultSummarize: Boolean, onDismiss: () -> Unit,
+    onAdd: (url: String, prompt: String?, summarize: Boolean) -> Unit,
+) {
+    var url by remember { mutableStateOf(initialUrl.orEmpty()) }
+    var prompt by remember { mutableStateOf("") }
+    var summarize by remember { mutableStateOf(defaultSummarize) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("add_dialog"),
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (askUrl) OutlinedTextField(url, { url = it }, label = { Text(stringResource(R.string.add_link_url)) }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("add_url"))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(summarize, { summarize = it }, modifier = Modifier.testTag("add_summarize"))
+                    Text(stringResource(R.string.add_summarize))
+                }
+                if (summarize) OutlinedTextField(
+                    prompt, { prompt = it }, label = { Text(stringResource(R.string.summary_prompt_label)) },
+                    placeholder = { Text(stringResource(R.string.summary_prompt_hint)) }, minLines = 2, modifier = Modifier.fillMaxWidth().testTag("add_prompt"),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onAdd(url.trim(), prompt.trim().ifEmpty { null }, summarize) }, enabled = !askUrl || url.isNotBlank(), modifier = Modifier.testTag("add_confirm")) {
+                Text(stringResource(R.string.add))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}

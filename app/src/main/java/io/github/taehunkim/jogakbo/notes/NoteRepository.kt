@@ -1,0 +1,180 @@
+package io.github.taehunkim.jogakbo.notes
+
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import io.github.taehunkim.jogakbo.data.db.JobState
+import io.github.taehunkim.jogakbo.data.db.NoteDao
+import io.github.taehunkim.jogakbo.data.db.NoteEntity
+import io.github.taehunkim.jogakbo.data.db.NoteKind
+import io.github.taehunkim.jogakbo.fetch.YouTubeFetcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
+
+/** Starts and cancels the background work on notes (WorkManager in the app, direct calls in tests). */
+interface NoteJobs {
+    fun fetchSource(noteId: Long, kind: NoteKind)
+    fun summarize(noteId: Long)
+    fun cancel(noteId: Long)
+    /** A note's text changed: embed it when the user's setting says so. */
+    fun noteChanged()
+}
+
+/** Creating, editing and deleting notes. Background work is handed to [jobs]. */
+class NoteRepository(
+    private val context: Context,
+    private val dao: NoteDao,
+    private val jobs: NoteJobs,
+    private val clock: () -> Long = System::currentTimeMillis,
+) {
+    val audioDir: File get() = File(context.filesDir, "audio").apply { mkdirs() }
+
+    fun audioFile(note: NoteEntity): File? = note.audioFile?.let { File(audioDir, it) }?.takeIf { it.exists() }
+
+    /** A new memo. [summarize]: also make a summary (with [prompt]). */
+    suspend fun createMemo(title: String, body: String, summarize: Boolean = false, prompt: String? = null): Long {
+        val now = clock()
+        val id = dao.insert(
+            NoteEntity(
+                uuid = UUID.randomUUID().toString(), kind = NoteKind.MEMO, title = titleFor(title, body, now), body = body,
+                summaryPrompt = prompt?.trim()?.ifEmpty { null }, createdAt = now, updatedAt = now,
+            ),
+        )
+        if (summarize) requestSummary(id, prompt)
+        jobs.noteChanged()
+        return id
+    }
+
+    suspend fun updateMemo(id: Long, title: String, body: String) {
+        val n = dao.get(id) ?: return
+        val now = clock()
+        dao.update(n.copy(title = titleFor(title, body, n.createdAt), body = body, updatedAt = now))
+        jobs.noteChanged()
+    }
+
+    /** The user edited the summary: kept until they ask for a new one. */
+    suspend fun updateSummary(id: Long, summary: String) {
+        val n = dao.get(id) ?: return
+        val text = summary.trim()
+        dao.update(
+            n.copy(
+                summary = text.ifEmpty { null }, summaryEdited = text.isNotEmpty(),
+                summaryState = if (text.isEmpty()) JobState.NONE else JobState.DONE, summaryError = null, updatedAt = clock(),
+            ),
+        )
+        jobs.noteChanged()
+    }
+
+    /** A note from a web page or a YouTube video; its content is fetched in the background. */
+    suspend fun addLink(url: String, prompt: String? = null, summarize: Boolean? = null): Long {
+        val clean = normalizeUrl(url)
+        val kind = if (YouTubeFetcher.isYouTube(clean)) NoteKind.YOUTUBE else NoteKind.LINK
+        val now = clock()
+        val id = dao.insert(
+            NoteEntity(
+                uuid = UUID.randomUUID().toString(), kind = kind, title = clean, sourceUrl = clean,
+                summaryPrompt = prompt?.trim()?.ifEmpty { null }, sourceState = JobState.QUEUED,
+                // the source job starts the summary when it is done (the setting decides unless [summarize] is given)
+                sourceMeta = if (summarize == false) """{"summarize":false}""" else if (summarize == true) """{"summarize":true}""" else null,
+                createdAt = now, updatedAt = now,
+            ),
+        )
+        jobs.fetchSource(id, kind)
+        return id
+    }
+
+    /** A note from an audio file: copied into the app (for playback), then transcribed in the background. */
+    suspend fun addAudio(uri: Uri, prompt: String? = null, summarize: Boolean? = null): Long {
+        val uuid = UUID.randomUUID().toString()
+        val name = displayName(uri) ?: "audio"
+        val ext = name.substringAfterLast('.', "").lowercase().takeIf { it.length in 2..5 } ?: "m4a"
+        val fileName = "$uuid.$ext"
+        withContext(Dispatchers.IO) {
+            context.contentResolver.openInputStream(uri)?.use { input -> File(audioDir, fileName).outputStream().use { input.copyTo(it) } }
+                ?: throw java.io.IOException("cannot open $uri")
+        }
+        val now = clock()
+        val id = dao.insert(
+            NoteEntity(
+                uuid = uuid, kind = NoteKind.AUDIO, title = name.substringBeforeLast('.').ifBlank { name }, audioFile = fileName,
+                summaryPrompt = prompt?.trim()?.ifEmpty { null }, sourceState = JobState.QUEUED,
+                sourceMeta = summarize?.let { """{"summarize":$it}""" },
+                createdAt = now, updatedAt = now,
+            ),
+        )
+        jobs.fetchSource(id, NoteKind.AUDIO)
+        return id
+    }
+
+    /** A note for a recording that is about to start (RecordingService fills it). */
+    suspend fun newRecording(title: String): NoteEntity {
+        val now = clock()
+        val uuid = UUID.randomUUID().toString()
+        val note = NoteEntity(
+            uuid = uuid, kind = NoteKind.AUDIO, title = title, audioFile = "$uuid.m4a", sourceState = JobState.RUNNING,
+            sourceMeta = """{"recording":true}""", createdAt = now, updatedAt = now,
+        )
+        return note.copy(id = dao.insert(note))
+    }
+
+    /** Make (or remake) the summary with [prompt] (null keeps the note's last one). */
+    suspend fun requestSummary(id: Long, prompt: String? = null) {
+        val n = dao.get(id) ?: return
+        dao.update(n.copy(summaryPrompt = prompt?.trim()?.ifEmpty { null } ?: n.summaryPrompt, summaryState = JobState.QUEUED, summaryError = null))
+        jobs.summarize(id)
+    }
+
+    /** Try the source again (a link that failed to load, a transcription that failed). */
+    suspend fun retrySource(id: Long) {
+        val n = dao.get(id) ?: return
+        dao.setSourceState(id, JobState.QUEUED)
+        jobs.fetchSource(id, n.kind)
+    }
+
+    suspend fun delete(id: Long) {
+        val n = dao.get(id) ?: return
+        jobs.cancel(id)
+        audioFile(n)?.delete()
+        dao.delete(id)
+        jobs.noteChanged()
+    }
+
+    /** Frees the space of a note's audio; the transcript stays. */
+    suspend fun deleteAudio(id: Long) {
+        val n = dao.get(id) ?: return
+        audioFile(n)?.delete()
+        dao.update(n.copy(audioFile = null))
+    }
+
+    private fun displayName(uri: Uri): String? = runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/')
+
+    companion object {
+        const val MAX_TITLE = 80
+
+        /** The given title, else the first line of the text (without Markdown marks), else the date. */
+        fun titleFor(title: String, body: String, createdAt: Long): String {
+            title.trim().takeIf { it.isNotEmpty() }?.let { return it.take(MAX_TITLE) }
+            val first = body.lineSequence().map { it.trim().trimStart('#', '>', '-', '*', ' ').replace(Regex("[*_`]"), "").trim() }
+                .firstOrNull { it.isNotEmpty() && it != "---" }
+            return first?.take(MAX_TITLE) ?: SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(createdAt))
+        }
+
+        /** Adds https:// to a bare address and drops spaces around it. */
+        fun normalizeUrl(url: String): String {
+            val t = url.trim()
+            return if (Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://").containsMatchIn(t)) t else "https://$t"
+        }
+
+        /** The first web address in a shared text ("Title https://…"), or null. */
+        fun findUrl(text: String): String? = Regex("https?://[^\\s<>\"]+").find(text)?.value?.trimEnd('.', ',', ')', ']', '>', '"', '\'')
+    }
+}

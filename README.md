@@ -49,6 +49,12 @@ The OndolSaem SDK comes from JitPack; to build against a sibling checkout see [d
 
 [User guide](docs/user-guide.md) · [Architecture](docs/architecture.md) · [Notes SDK](docs/notes-sdk.md) · [Privacy](docs/privacy.md) · [Development](docs/development.md) · [Roadmap](docs/roadmap.md)
 
+## About the name
+
+**조각보 (Jogakbo)** joins **조각** (*jogak*, a piece or scrap) and **보** (*bo*, a wrapping cloth). A jogakbo is a traditional Korean wrapping cloth sewn together from leftover scraps of fabric. Jogakbo the app does the same with information: scraps from web pages, YouTube videos, recordings and your own memos are stitched into one place where you can find them again, and each piece keeps its original under a summary. It continues the household theme of its siblings (the *ondol* floor of OndolSaem) and, like them, is two everyday Korean words easy to say in English ("jo-gak-bo").
+
+The backronym covers the whole name: **J**ournal **O**f **G**athered **A**udio, **K**nowledge, **B**ookmarks & **O**riginals.
+
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -49,6 +49,12 @@ source scripts/env.sh
 
 [사용 안내](docs/user-guide.md) · [구조](docs/architecture.md) · [노트 SDK](docs/notes-sdk.md) · [개인정보](docs/privacy.md) · [개발](docs/development.md) · [로드맵](docs/roadmap.md)
 
+## 이름의 뜻
+
+**조각보**는 **조각**과 **보**(보자기)를 합친 말로, 자투리 천 조각을 이어 붙여 만든 우리 전통 보자기입니다. 조각보 앱도 정보를 그렇게 다룹니다. 웹페이지, 유튜브 영상, 녹음, 직접 쓴 메모의 조각들을 한곳에 이어 붙여 다시 찾을 수 있게 하고, 조각마다 요약 아래에 원문을 그대로 남깁니다. 온돌샘의 *온돌*처럼 한옥 살림살이에서 온 이름이고, 다른 앱들처럼 영어로도 발음하기 쉬운("jo-gak-bo") 두 단어의 조합입니다.
+
+역두문자는 이름 전체를 풉니다: **J**ournal **O**f **G**athered **A**udio, **K**nowledge, **B**ookmarks & **O**riginals.
+
 ## 라이선스
 
 Apache License 2.0. [LICENSE](LICENSE)와 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 참고.

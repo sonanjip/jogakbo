@@ -73,6 +73,8 @@ class JogakboApp : Application() {
         container = AppContainer(this)
         Notifications.ensureChannels(this)
         container.embedScheduler.start()
+        // exact screen-off times for "When idle" while the app runs (OndolSaem SDK's IdleState)
+        io.github.taehunkim.ondolsaem.sdk.IdleState(this).watchScreen()
         container.appScope.launch {
             if (!container.settings.tagsSeeded.first()) {
                 container.tags.seed(resources.getStringArray(R.array.tag_examples).toList())

@@ -22,6 +22,7 @@ class SettingsStore(private val context: Context) {
     private val kEmbedMode = stringPreferencesKey("embed_mode")
     private val kScheduleMinutes = intPreferencesKey("schedule_minutes")
     private val kChargingOnly = booleanPreferencesKey("schedule_charging_only")
+    private val kIdlePreset = androidx.datastore.preferences.core.stringPreferencesKey("idle_preset")
     private val kSystemPrompt = stringPreferencesKey("summary_system_prompt")
     private val kLanguage = stringPreferencesKey("summary_language")
     private val kOnboarding = booleanPreferencesKey("onboarding_done")
@@ -42,6 +43,10 @@ class SettingsStore(private val context: Context) {
 
     val scheduleChargingOnly: Flow<Boolean> = context.dataStore.data.map { it[kChargingOnly] ?: true }
     suspend fun setScheduleChargingOnly(on: Boolean) { context.dataStore.edit { it[kChargingOnly] = on } }
+    /** How long the phone must be unused (by battery level) before "When idle" embedding starts. */
+    val idlePreset: Flow<io.github.taehunkim.ondolsaem.sdk.IdlePreset> =
+        context.dataStore.data.map { io.github.taehunkim.ondolsaem.sdk.IdlePreset.of(it[kIdlePreset]) }
+    suspend fun setIdlePreset(p: io.github.taehunkim.ondolsaem.sdk.IdlePreset) { context.dataStore.edit { it[kIdlePreset] = p.name } }
 
     /** The user's instructions for every summary (added to the built-in prompt). */
     val systemPrompt: Flow<String> = context.dataStore.data.map { it[kSystemPrompt] ?: "" }

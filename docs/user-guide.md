@@ -42,7 +42,9 @@ Notes › Search by meaning). The chips filter by kind.
 
 - **Notes**: instructions for every summary, the summary language (same as the original, or the app's language),
   which kinds are summarized automatically, and when notes are embedded (right after a change, while charging and
-  idle, once a day at a time, or only with *Embed now*).
+  not in use, once a day at a time, or only with *Embed now*). "Not in use" means the screen has been off for 10, 30 or
+  60 minutes when the battery is at 90 % or more, 70–89 % or below 70 % (*Sooner* and *Later* shorten or lengthen
+  this); it stops when you use the phone.
 - **Tags**: your tags (add, edit with an optional description of what belongs there, reorder, delete), automatic
   tagging on or off, and *Tag all notes again*. Seven example tags are added at first start.
 - **Data**: export a ZIP (one Markdown file per note with its tags, and the tag list; summaries and audio optional) and import a ZIP or a Markdown

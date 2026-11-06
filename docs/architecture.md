@@ -76,8 +76,10 @@ Playback (`ui/notes/AudioPlayer`, `MediaPlayer`) seeks when a cue is tapped; You
   (`retryShorter` on the 1024-token limit). `embedKey = "<model>|n<NOTE_VERSION>"`; a note is embedded again when
   `embeddedAt < updatedAt` or the key differs (model change in OndolSaem).
 - `EmbedScheduler` (`EmbedWorker`): IMMEDIATE (unique work 30 s after the last change, and a catch-up at start and
-  after a model change), SCHEDULED (daily at a time, battery not low, optionally charging), IDLE (every 3 h while
-  charging and idle), MANUAL ("Embed now").
+  after a model change), SCHEDULED (daily at a time, battery not low, optionally charging), IDLE (a check every 15 min while
+  charging; the pass runs only when OndolSaem SDK's `IdleRule` says idle: the screen off for 10/30/60 min at ≥ 90 % /
+  70–89 % / < 70 % battery with the Normal preset, Sooner 5/15/30, Later 30/60/120; screen-off times from
+  `IdleState`; embedding and tagging stop between notes when the screen turns on), MANUAL ("Embed now").
 - `NoteSearch`: all vectors of the current model in memory (cached by a chunk stamp), a note's semantic score is
   its best chunk; notes below `max(0.30, top − 0.12)` are dropped. Words: every word of the query in the title,
   summary or original (SQL LIKE on the longest word, then checked in memory). Score = 1.2 × word score + semantic

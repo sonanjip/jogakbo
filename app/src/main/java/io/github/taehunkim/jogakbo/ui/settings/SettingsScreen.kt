@@ -186,6 +186,29 @@ private fun NotesTab() {
                 Text(stringResource(labels.second), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        if (m == EmbedMode.IDLE && mode == EmbedMode.IDLE) {
+            val preset by c.settings.idlePreset.collectAsStateWithLifecycle(io.github.taehunkim.ondolsaem.sdk.IdlePreset.DEFAULT)
+            Column(Modifier.padding(start = 40.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    io.github.taehunkim.ondolsaem.sdk.IdlePreset.entries.forEach { p ->
+                        FilterChip(
+                            selected = preset == p,
+                            onClick = { scope.launch { c.settings.setIdlePreset(p) } },
+                            label = {
+                                Text(stringResource(when (p) {
+                                    io.github.taehunkim.ondolsaem.sdk.IdlePreset.FAST -> R.string.idle_preset_fast
+                                    io.github.taehunkim.ondolsaem.sdk.IdlePreset.NORMAL -> R.string.idle_preset_normal
+                                    io.github.taehunkim.ondolsaem.sdk.IdlePreset.RELAXED -> R.string.idle_preset_relaxed
+                                }))
+                            },
+                            modifier = Modifier.testTag("idle_${p.name}"),
+                        )
+                    }
+                }
+                val (high, mid, low) = preset.minutesOff
+                Text(stringResource(R.string.idle_preset_rule, high, mid, low), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         if (m == EmbedMode.SCHEDULED && mode == EmbedMode.SCHEDULED) {
             Column(Modifier.padding(start = 40.dp)) {
                 TextButton(onClick = { pickTime = true }) { Text(stringResource(R.string.embed_at, formatMinutes(minutes))) }

@@ -53,8 +53,11 @@ class EmbedScheduler(private val context: Context, private val settings: Setting
                 wm.enqueueUniquePeriodicWork(SCHEDULED, ExistingPeriodicWorkPolicy.UPDATE, req)
             }
             EmbedMode.IDLE -> {
-                val req = PeriodicWorkRequestBuilder<EmbedWorker>(3, TimeUnit.HOURS)
-                    .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).setRequiresCharging(true).setRequiresDeviceIdle(true).build())
+                // "Not in use" = charging and the screen off long enough for the battery level (OndolSaem SDK's
+                // IdleRule, preset in Settings): a check every 15 minutes while charging, the worker returns at once
+                // unless idle.
+                val req = PeriodicWorkRequestBuilder<EmbedWorker>(IDLE_CHECK_MIN, TimeUnit.MINUTES)
+                    .setConstraints(Constraints.Builder().setRequiresCharging(true).build())
                     .setInputData(workDataOf(EmbedWorker.KEY_SOURCE to "idle"))
                     .build()
                 wm.enqueueUniquePeriodicWork(IDLE, ExistingPeriodicWorkPolicy.UPDATE, req)
@@ -86,6 +89,8 @@ class EmbedScheduler(private val context: Context, private val settings: Setting
         const val SCHEDULED = "embed-scheduled"
         const val IDLE = "embed-idle"
         const val DEBOUNCE_SEC = 30L
+        /** Idle checks while charging (WorkManager's shortest period). */
+        const val IDLE_CHECK_MIN = 15L
 
         /** Milliseconds from [now] to the next [minutes] after midnight. */
         fun delayUntil(minutes: Int, now: Long): Long {
@@ -100,15 +105,21 @@ class EmbedScheduler(private val context: Context, private val settings: Setting
 class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val c = (applicationContext as JogakboApp).container
+        val idleRun = inputData.getString(KEY_SOURCE) == "idle"
+        val idle = io.github.taehunkim.ondolsaem.sdk.IdleState(applicationContext)
+        if (idleRun && !idle.isIdle(c.settings.idlePreset.first())) return Result.success()
+        // an idle pass stops when the phone is used again; the rest waits for the next idle check
+        val keepGoing = { !idleRun || !idle.screenOn() }
         fun info(done: Int, total: Int) = Notifications.foregroundInfo(
             Notifications.ID_EMBED,
             Notifications.progress(applicationContext, id, applicationContext.getString(R.string.job_embedding), null, done, total, null),
         )
-        val pass = c.indexer.embedPending { d, t -> if (t > 3) runCatching { runBlocking { setForeground(info(d, t)) } } }
+        val pass = c.indexer.embedPending({ d, t -> if (t > 3) runCatching { runBlocking { setForeground(info(d, t)) } } }, keepGoing)
         if (pass.embedded > 0) NotesEvents.notifyChanged(applicationContext)
         // tags follow the same timing; a missing decision model does not make the pass retry
-        val tagged = if (c.settings.autoTag.first()) runCatching { c.tagger.tagPending() }.getOrNull() else null
+        val tagged = if (c.settings.autoTag.first() && keepGoing()) runCatching { c.tagger.tagPending(keepGoing = keepGoing) }.getOrNull() else null
         if ((tagged?.tagged ?: 0) > 0 && pass.embedded == 0) NotesEvents.notifyChanged(applicationContext)
+        if (idleRun && !keepGoing()) return Result.success()
         return if (pass.noModel || pass.left > 0) Result.retry() else Result.success()
     }
 

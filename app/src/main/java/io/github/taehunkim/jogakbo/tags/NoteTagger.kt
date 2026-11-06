@@ -24,13 +24,15 @@ class NoteTagger(
 ) {
     data class Pass(val tagged: Int, val noModel: Boolean)
 
-    suspend fun tagPending(onProgress: (Int, Int) -> Unit = { _, _ -> }): Pass {
+    /** Tags the notes that need it; stops early when [keepGoing] turns false. */
+    suspend fun tagPending(onProgress: (Int, Int) -> Unit = { _, _ -> }, keepGoing: () -> Boolean = { true }): Pass {
         val all = tags.tags()
         if (all.isEmpty()) return Pass(0, false)
         val d = decider() ?: return Pass(0, true)
         val ids = tags.needingTags(d.modelId, all.size)
         var done = 0
         for (id in ids) {
+            if (!keepGoing()) break
             val n = notes.get(id) ?: continue
             runCatching { tagNote(n, all, d) }.onFailure { Log.w(TAG, "note $id not tagged", it); if (it is kotlinx.coroutines.CancellationException) throw it }
             onProgress(++done, ids.size)

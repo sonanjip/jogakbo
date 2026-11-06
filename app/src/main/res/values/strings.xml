@@ -68,8 +68,8 @@
     <string name="editor_write">Write</string>
     <string name="embed_at">Every day at %1$s</string>
     <string name="embed_charging_only">Only while charging</string>
-    <string name="embed_idle">While charging and idle</string>
-    <string name="embed_idle_desc">Saves battery; new notes are searchable by meaning later.</string>
+    <string name="embed_idle">While charging and not in use</string>
+    <string name="embed_idle_desc">Saves battery: starts after the screen has been off a while (sooner when the battery is fuller) and stops when you use the phone. New notes are searchable by meaning afterwards.</string>
     <string name="embed_immediate">Right after a change</string>
     <string name="embed_immediate_desc">About 30 seconds after you stop editing.</string>
     <string name="embed_manual">Only when I ask</string>
@@ -227,4 +227,8 @@
     <string name="tag_accept">Add this tag</string>
     <string name="tag_decline">Not this tag</string>
     <string name="model_decision">Tags (decisions)</string>
+    <string name="idle_preset_fast">Sooner</string>
+    <string name="idle_preset_normal">Normal</string>
+    <string name="idle_preset_relaxed">Later</string>
+    <string name="idle_preset_rule">Starts while charging once the screen has been off for %1$d min (battery 90%% or more), %2$d min (70–89%%) or %3$d min (below 70%%). Stops when you use the phone.</string>
 </resources>

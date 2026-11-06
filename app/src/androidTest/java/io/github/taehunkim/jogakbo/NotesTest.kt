@@ -138,6 +138,18 @@ class NotesTest {
         assertNull(dao.get(id)!!.audioFile)
     }
 
+    @Test fun embeddingStopsWhenAskedAndTheRestWaits() = runBlocking {
+        repeat(3) { repo.createMemo("Memo $it", "Text number $it about something.") }
+        val indexer = NoteIndexer(dao, models)
+        var asked = 0
+        // an idle pass stops when the phone is used again: here after the first note
+        val pass = indexer.embedPending(keepGoing = { asked++ < 1 })
+        assertEquals(1, pass.embedded)
+        assertEquals(2, pass.left)
+        assertEquals(2, dao.needingEmbedding(NoteIndexer.key(embedder.modelId)).size)
+        assertEquals(2, indexer.embedPending().embedded)
+    }
+
     @Test fun embeddingSearchAndApi() = runBlocking {
         val a = repo.createMemo("Kimchi recipe", "Napa cabbage, chili powder, garlic and fish sauce. Ferment for two days.")
         val b = repo.createMemo("Bike repair", "Fix a flat tire: remove the wheel, find the hole, patch the tube.")

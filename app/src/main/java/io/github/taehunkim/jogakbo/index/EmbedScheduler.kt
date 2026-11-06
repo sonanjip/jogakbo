@@ -15,6 +15,8 @@ import io.github.taehunkim.jogakbo.Notifications
 import io.github.taehunkim.jogakbo.R
 import io.github.taehunkim.jogakbo.data.prefs.EmbedMode
 import io.github.taehunkim.jogakbo.data.prefs.SettingsStore
+import io.github.taehunkim.jogakbo.data.db.NoteEntity
+import io.github.taehunkim.jogakbo.notes.Timing
 import io.github.taehunkim.jogakbo.service.NotesEvents
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
@@ -26,8 +28,11 @@ import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 /**
- * When notes are embedded (Settings): right after a change (debounced), once a day at a set time, while the phone
- * charges and is idle, or only with "Embed now". Like Nunsori's automatic indexing, without a file trigger.
+ * When notes are summarized (new notes' automatic summaries), embedded and tagged (Settings): right after a change
+ * (debounced), once a day at a set time, while the phone charges and is idle, or only with "Embed now". Like Nunsori's
+ * automatic indexing, without a file trigger. A note can choose otherwise for itself ([Timing]): a note that asks for
+ * "now" is handled right after a change in any mode, and in [EmbedMode.IMMEDIATE] a note that asks for "later" waits
+ * for "Embed now".
  */
 class EmbedScheduler(private val context: Context, private val settings: SettingsStore, private val scope: CoroutineScope) {
     private val wm get() = WorkManager.getInstance(context)
@@ -43,7 +48,7 @@ class EmbedScheduler(private val context: Context, private val settings: Setting
         if (mode != EmbedMode.SCHEDULED) wm.cancelUniqueWork(SCHEDULED)
         if (mode != EmbedMode.IDLE) wm.cancelUniqueWork(IDLE)
         when (mode) {
-            EmbedMode.IMMEDIATE -> runNow(delaySec = 5) // catch up on what changed while the app was not running
+            EmbedMode.IMMEDIATE -> runNow(delaySec = 5, auto = true) // catch up on what changed while the app was not running
             EmbedMode.SCHEDULED -> {
                 val req = PeriodicWorkRequestBuilder<EmbedWorker>(24, TimeUnit.HOURS)
                     .setInitialDelay(delayUntil(minutes, System.currentTimeMillis()), TimeUnit.MILLISECONDS)
@@ -66,26 +71,33 @@ class EmbedScheduler(private val context: Context, private val settings: Setting
         }
     }
 
-    /** A note changed: in [EmbedMode.IMMEDIATE], embed after [DEBOUNCE_SEC] without further changes. */
+    /**
+     * A note changed: after [DEBOUNCE_SEC] without further changes, handle the notes whose timing is "now" (all of them
+     * in [EmbedMode.IMMEDIATE], only the ones that asked for it in the other modes).
+     */
     fun onNoteChanged() {
         scope.launch {
-            if (settings.embedMode.first() == EmbedMode.IMMEDIATE) runNow(DEBOUNCE_SEC)
+            runNow(DEBOUNCE_SEC, auto = true)
             // other apps hear about changes now; the new text is searchable once embedded
             NotesEvents.notifyChanged(context)
         }
     }
 
-    /** "Embed now" (and the immediate mode). */
-    fun runNow(delaySec: Long = 0) {
+    /**
+     * "Embed now" ([auto] false: every waiting note, summaries included), or the pass after a change ([auto] true: the
+     * notes whose timing is "now").
+     */
+    fun runNow(delaySec: Long = 0, auto: Boolean = false) {
         val req = OneTimeWorkRequestBuilder<EmbedWorker>()
             .setInitialDelay(delaySec, TimeUnit.SECONDS)
-            .setInputData(workDataOf(EmbedWorker.KEY_SOURCE to "now"))
+            .setInputData(workDataOf(EmbedWorker.KEY_SOURCE to if (auto) "auto" else "now"))
             .build()
-        wm.enqueueUniqueWork(NOW, ExistingWorkPolicy.REPLACE, req)
+        wm.enqueueUniqueWork(if (auto) AUTO else NOW, ExistingWorkPolicy.REPLACE, req)
     }
 
     companion object {
         const val NOW = "embed-now"
+        const val AUTO = "embed-auto"
         const val SCHEDULED = "embed-scheduled"
         const val IDLE = "embed-idle"
         const val DEBOUNCE_SEC = 30L
@@ -101,11 +113,17 @@ class EmbedScheduler(private val context: Context, private val settings: Setting
     }
 }
 
-/** Embeds the notes that need it. */
+/** Makes the waiting summaries, then embeds and tags the notes that need it. */
 class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val c = (applicationContext as JogakboApp).container
-        val idleRun = inputData.getString(KEY_SOURCE) == "idle"
+        val source = inputData.getString(KEY_SOURCE)
+        val idleRun = source == "idle"
+        val auto = source == "auto"
+        val defaultNow = c.settings.embedMode.first() == EmbedMode.IMMEDIATE
+        // after a change only the notes that are to be handled now; the other passes take everything
+        val accept = { n: NoteEntity -> !auto || Timing.isNow(n, defaultNow) }
+        if (auto && !defaultNow && !forcedNotesWaiting(c)) return Result.success()
         val idle = io.github.taehunkim.ondolsaem.sdk.IdleState(applicationContext)
         if (idleRun && !idle.isIdle(c.settings.idlePreset.first())) return Result.success()
         // an idle pass stops when the phone is used again; the rest waits for the next idle check
@@ -114,13 +132,30 @@ class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
             Notifications.ID_EMBED,
             Notifications.progress(applicationContext, id, applicationContext.getString(R.string.job_embedding), null, done, total, null),
         )
-        val pass = c.indexer.embedPending({ d, t -> if (t > 3) runCatching { runBlocking { setForeground(info(d, t)) } } }, keepGoing)
+        // summaries first: they are part of what is embedded and tagged
+        if (!auto) for (id in c.db.noteDao().deferredSummaries()) {
+            if (!keepGoing()) break
+            runCatching { c.summaryJob.run(id) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+        }
+        val pass = c.indexer.embedPending({ d, t -> if (t > 3) runCatching { runBlocking { setForeground(info(d, t)) } } }, keepGoing, accept)
         if (pass.embedded > 0) NotesEvents.notifyChanged(applicationContext)
         // tags follow the same timing; a missing decision model does not make the pass retry
-        val tagged = if (c.settings.autoTag.first() && keepGoing()) runCatching { c.tagger.tagPending(keepGoing = keepGoing) }.getOrNull() else null
+        val tagged = if (c.settings.autoTag.first() && keepGoing()) runCatching { c.tagger.tagPending(keepGoing = keepGoing, accept = accept) }.getOrNull() else null
         if ((tagged?.tagged ?: 0) > 0 && pass.embedded == 0) NotesEvents.notifyChanged(applicationContext)
         if (idleRun && !keepGoing()) return Result.success()
         return if (pass.noModel || pass.left > 0) Result.retry() else Result.success()
+    }
+
+    /** True when a note that asked for "now" still needs embedding or tags (so an automatic pass has work). */
+    private suspend fun forcedNotesWaiting(c: io.github.taehunkim.jogakbo.AppContainer): Boolean {
+        val dao = c.db.noteDao()
+        val embedId = c.settings.embeddingModelId.first()
+        val waiting = HashSet<Long>()
+        if (embedId.isNotEmpty()) waiting += dao.needingEmbedding(NoteIndexer.key(embedId))
+        val decisionId = c.settings.decisionModelId.first()
+        val tagCount = c.db.tagDao().tags().size
+        if (c.settings.autoTag.first() && decisionId.isNotEmpty() && tagCount > 0) waiting += c.db.tagDao().needingTags(decisionId, tagCount)
+        return waiting.any { id -> dao.get(id)?.let { Timing.override(it) == true } == true }
     }
 
     override suspend fun getForegroundInfo() = Notifications.foregroundInfo(

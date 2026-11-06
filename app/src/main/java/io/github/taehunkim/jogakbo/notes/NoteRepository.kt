@@ -30,22 +30,25 @@ class NoteRepository(
     private val context: Context,
     private val dao: NoteDao,
     private val jobs: NoteJobs,
+    /** Whether Settings say "now" for summaries, search index and tags (a note can choose otherwise, see [Timing]). */
+    private val defaultNow: suspend () -> Boolean = { true },
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     val audioDir: File get() = File(context.filesDir, "audio").apply { mkdirs() }
 
     fun audioFile(note: NoteEntity): File? = note.audioFile?.let { File(audioDir, it) }?.takeIf { it.exists() }
 
-    /** A new memo. [summarize]: also make a summary (with [prompt]). */
-    suspend fun createMemo(title: String, body: String, summarize: Boolean = false, prompt: String? = null): Long {
-        val now = clock()
+    /** A new memo. [summarize]: also make a summary (with [prompt]). [timing]: this note's own choice of now or later. */
+    suspend fun createMemo(title: String, body: String, summarize: Boolean = false, prompt: String? = null, timing: Boolean? = null): Long {
+        val at = clock()
         val id = dao.insert(
             NoteEntity(
-                uuid = UUID.randomUUID().toString(), kind = NoteKind.MEMO, title = titleFor(title, body, now), body = body,
-                summaryPrompt = prompt?.trim()?.ifEmpty { null }, createdAt = now, updatedAt = now,
+                uuid = UUID.randomUUID().toString(), kind = NoteKind.MEMO, title = titleFor(title, body, at), body = body,
+                summaryPrompt = prompt?.trim()?.ifEmpty { null }, sourceMeta = Timing.withOverride(null, timing),
+                createdAt = at, updatedAt = at,
             ),
         )
-        if (summarize) requestSummary(id, prompt)
+        if (summarize) autoSummary(id, prompt)
         jobs.noteChanged()
         return id
     }
@@ -71,7 +74,7 @@ class NoteRepository(
     }
 
     /** A note from a web page or a YouTube video; its content is fetched in the background. */
-    suspend fun addLink(url: String, prompt: String? = null, summarize: Boolean? = null): Long {
+    suspend fun addLink(url: String, prompt: String? = null, summarize: Boolean? = null, timing: Boolean? = null): Long {
         val clean = normalizeUrl(url)
         val kind = if (YouTubeFetcher.isYouTube(clean)) NoteKind.YOUTUBE else NoteKind.LINK
         val now = clock()
@@ -80,7 +83,7 @@ class NoteRepository(
                 uuid = UUID.randomUUID().toString(), kind = kind, title = clean, sourceUrl = clean,
                 summaryPrompt = prompt?.trim()?.ifEmpty { null }, sourceState = JobState.QUEUED,
                 // the source job starts the summary when it is done (the setting decides unless [summarize] is given)
-                sourceMeta = if (summarize == false) """{"summarize":false}""" else if (summarize == true) """{"summarize":true}""" else null,
+                sourceMeta = Timing.withOverride(summarize?.let { """{"summarize":$it}""" }, timing),
                 createdAt = now, updatedAt = now,
             ),
         )
@@ -89,7 +92,7 @@ class NoteRepository(
     }
 
     /** A note from an audio file: copied into the app (for playback), then transcribed in the background. */
-    suspend fun addAudio(uri: Uri, prompt: String? = null, summarize: Boolean? = null): Long {
+    suspend fun addAudio(uri: Uri, prompt: String? = null, summarize: Boolean? = null, timing: Boolean? = null): Long {
         val uuid = UUID.randomUUID().toString()
         val name = displayName(uri) ?: "audio"
         val ext = name.substringAfterLast('.', "").lowercase().takeIf { it.length in 2..5 } ?: "m4a"
@@ -103,7 +106,7 @@ class NoteRepository(
             NoteEntity(
                 uuid = uuid, kind = NoteKind.AUDIO, title = name.substringBeforeLast('.').ifBlank { name }, audioFile = fileName,
                 summaryPrompt = prompt?.trim()?.ifEmpty { null }, sourceState = JobState.QUEUED,
-                sourceMeta = summarize?.let { """{"summarize":$it}""" },
+                sourceMeta = Timing.withOverride(summarize?.let { """{"summarize":$it}""" }, timing),
                 createdAt = now, updatedAt = now,
             ),
         )
@@ -122,7 +125,14 @@ class NoteRepository(
         return note.copy(id = dao.insert(note))
     }
 
-    /** Make (or remake) the summary with [prompt] (null keeps the note's last one). */
+    /** The summary a new note asked for: started now, or kept waiting for the time chosen in Settings. */
+    private suspend fun autoSummary(id: Long, prompt: String?) {
+        val n = dao.get(id) ?: return
+        if (Timing.isNow(n, defaultNow())) { requestSummary(id, prompt); return }
+        dao.update(n.copy(summaryPrompt = prompt?.trim()?.ifEmpty { null } ?: n.summaryPrompt, summaryState = JobState.DEFERRED, summaryError = null))
+    }
+
+    /** Make (or remake) the summary with [prompt] (null keeps the note's last one), right away: the user asked. */
     suspend fun requestSummary(id: Long, prompt: String? = null) {
         val n = dao.get(id) ?: return
         dao.update(n.copy(summaryPrompt = prompt?.trim()?.ifEmpty { null } ?: n.summaryPrompt, summaryState = JobState.QUEUED, summaryError = null))

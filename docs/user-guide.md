@@ -41,8 +41,9 @@ Notes › Search by meaning). The chips filter by kind.
 ## Settings
 
 - **Notes**: instructions for every summary, the summary language (same as the original, or the app's language),
-  which kinds are summarized automatically, and when notes are embedded (right after a change, while charging and
-  not in use, once a day at a time, or only with *Embed now*). "Not in use" means the screen has been off for 10, 30 or
+  which kinds are summarized automatically, and when new notes are summarized, embedded and tagged (now, right after
+  a change; while charging and not in use; once a day at a time; or only with *Summarize, index and tag now*). When you
+  add a note, *Summarize, index and tag now* under *Make a summary* overrides this for that note, both ways. "Not in use" means the screen has been off for 10, 30 or
   60 minutes when the battery is at 90 % or more, 70–89 % or below 70 % (*Sooner* and *Later* shorten or lengthen
   this); it stops when you use the phone.
 - **Tags**: your tags (add, edit with an optional description of what belongs there, reorder, delete), automatic

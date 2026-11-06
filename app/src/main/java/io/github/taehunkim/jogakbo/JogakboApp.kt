@@ -44,7 +44,7 @@ class AppContainer(val context: Context) {
     val http = UrlConnectionHttp()
     val embedScheduler = EmbedScheduler(context, settings, appScope)
     val jobs: NoteJobs = WorkJobs(context) { embedScheduler.onNoteChanged() }
-    val notes by lazy { NoteRepository(context, db.noteDao(), jobs) }
+    val notes by lazy { NoteRepository(context, db.noteDao(), jobs, defaultNow = { settings.embedMode.first() == EmbedMode.IMMEDIATE }) }
     val summaryJob by lazy { SummaryJob(context, db.noteDao(), models, settings, jobs) }
     val sourceJob by lazy { SourceJob(context, db.noteDao(), http, models, settings, jobs, { notes.audioDir }) }
     val indexer by lazy { NoteIndexer(db.noteDao(), models) }
@@ -94,13 +94,13 @@ class JogakboApp : Application() {
         // the embedding model changed in OndolSaem: notes are embedded again
         container.appScope.launch {
             container.settings.embeddingModelId.distinctUntilChanged().drop(1).collect {
-                if (it.isNotEmpty() && container.settings.embedMode.first() == EmbedMode.IMMEDIATE) container.embedScheduler.runNow(5)
+                if (it.isNotEmpty() && container.settings.embedMode.first() == EmbedMode.IMMEDIATE) container.embedScheduler.runNow(5, auto = true)
             }
         }
         // a new decision model answers again
         container.appScope.launch {
             container.settings.decisionModelId.distinctUntilChanged().drop(1).collect {
-                if (it.isNotEmpty() && container.settings.embedMode.first() == EmbedMode.IMMEDIATE) container.embedScheduler.runNow(5)
+                if (it.isNotEmpty() && container.settings.embedMode.first() == EmbedMode.IMMEDIATE) container.embedScheduler.runNow(5, auto = true)
             }
         }
         // OndolSaem announces model changes by broadcast (also when this app is not running): re-check.

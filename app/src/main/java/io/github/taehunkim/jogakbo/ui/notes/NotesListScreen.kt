@@ -109,6 +109,7 @@ fun NotesListScreen(
     var addAudio by remember { mutableStateOf<Uri?>(null) }
     val autoLink by c.settings.autoSummary(NoteKind.LINK).collectAsStateWithLifecycle(true)
     val autoAudio by c.settings.autoSummary(NoteKind.AUDIO).collectAsStateWithLifecycle(true)
+    val defaultNow = c.settings.embedMode.collectAsStateWithLifecycle(io.github.taehunkim.jogakbo.data.prefs.EmbedMode.IMMEDIATE).value == io.github.taehunkim.jogakbo.data.prefs.EmbedMode.IMMEDIATE
 
     LaunchedEffect(shared) {
         when (shared) {
@@ -199,17 +200,17 @@ fun NotesListScreen(
     addLink?.let { initial ->
         AddDialog(
             title = stringResource(R.string.add_link), initialUrl = initial, askUrl = true,
-            defaultSummarize = autoLink, onDismiss = { addLink = null },
-        ) { url, prompt, summarize ->
+            defaultSummarize = autoLink, defaultNow = defaultNow, onDismiss = { addLink = null },
+        ) { url, prompt, summarize, timing ->
             addLink = null
-            scope.launch { val id = c.notes.addLink(url, prompt, summarize); onMain { onOpen(id) } }
+            scope.launch { val id = c.notes.addLink(url, prompt, summarize, timing); onMain { onOpen(id) } }
         }
     }
     addAudio?.let { uri ->
-        AddDialog(title = stringResource(R.string.add_audio), initialUrl = null, askUrl = false, defaultSummarize = autoAudio, onDismiss = { addAudio = null }) { _, prompt, summarize ->
+        AddDialog(title = stringResource(R.string.add_audio), initialUrl = null, askUrl = false, defaultSummarize = autoAudio, defaultNow = defaultNow, onDismiss = { addAudio = null }) { _, prompt, summarize, timing ->
             addAudio = null
             scope.launch {
-                runCatching { c.notes.addAudio(uri, prompt, summarize) }
+                runCatching { c.notes.addAudio(uri, prompt, summarize, timing) }
                     .onSuccess { id -> onMain { onOpen(id) } }
                     .onFailure { e ->
                         android.util.Log.w("Jogakbo", "cannot read $uri", e)
@@ -249,18 +250,23 @@ fun status(n: NoteEntity): Int? = when {
     n.sourceState == JobState.FAILED -> R.string.state_source_failed
     n.summaryState == JobState.QUEUED || n.summaryState == JobState.RUNNING -> R.string.state_summarizing
     n.summaryState == JobState.FAILED -> R.string.state_summary_failed
+    n.summaryState == JobState.DEFERRED -> R.string.state_summary_waiting
     else -> null
 }
 
-/** Adding a link or an audio file: the address, an optional instruction for the summary, and whether to summarize. */
+/**
+ * Adding a link or an audio file: the address, whether to summarize (with an optional instruction), and whether to
+ * summarize, index and tag right away ([defaultNow] from Settings; the callback gets null when the choice is the default).
+ */
 @Composable
 fun AddDialog(
-    title: String, initialUrl: String?, askUrl: Boolean, defaultSummarize: Boolean, onDismiss: () -> Unit,
-    onAdd: (url: String, prompt: String?, summarize: Boolean) -> Unit,
+    title: String, initialUrl: String?, askUrl: Boolean, defaultSummarize: Boolean, defaultNow: Boolean, onDismiss: () -> Unit,
+    onAdd: (url: String, prompt: String?, summarize: Boolean, timing: Boolean?) -> Unit,
 ) {
     var url by remember { mutableStateOf(initialUrl.orEmpty()) }
     var prompt by remember { mutableStateOf("") }
     var summarize by remember { mutableStateOf(defaultSummarize) }
+    var now by remember(defaultNow) { mutableStateOf(defaultNow) }
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.testTag("add_dialog"),
@@ -272,6 +278,10 @@ fun AddDialog(
                     Checkbox(summarize, { summarize = it }, modifier = Modifier.testTag("add_summarize"))
                     Text(stringResource(R.string.add_summarize))
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(now, { now = it }, modifier = Modifier.testTag("add_now"))
+                    Text(stringResource(R.string.timing_now))
+                }
                 if (summarize) OutlinedTextField(
                     prompt, { prompt = it }, label = { Text(stringResource(R.string.summary_prompt_label)) },
                     placeholder = { Text(stringResource(R.string.summary_prompt_hint)) }, minLines = 2, modifier = Modifier.fillMaxWidth().testTag("add_prompt"),
@@ -279,7 +289,7 @@ fun AddDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onAdd(url.trim(), prompt.trim().ifEmpty { null }, summarize) }, enabled = !askUrl || url.isNotBlank(), modifier = Modifier.testTag("add_confirm")) {
+            TextButton(onClick = { onAdd(url.trim(), prompt.trim().ifEmpty { null }, summarize, now.takeIf { it != defaultNow }) }, enabled = !askUrl || url.isNotBlank(), modifier = Modifier.testTag("add_confirm")) {
                 Text(stringResource(R.string.add))
             }
         },

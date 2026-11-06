@@ -65,6 +65,8 @@ class NotesTest {
         db = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java).build()
         dao = db.noteDao()
         jobs = FakeJobs()
+        // the settings file outlives tests: automatic summaries start now unless a test says otherwise
+        runBlocking { settings.setEmbedMode(io.github.taehunkim.jogakbo.data.prefs.EmbedMode.IMMEDIATE) }
         repo = NoteRepository(ctx, dao, jobs)
         models = ModelHost(ctx, settings, scope).apply {
             textOverride = { text }; embedderOverride = { embedder }; speechOverride = { FakeSpeech() }

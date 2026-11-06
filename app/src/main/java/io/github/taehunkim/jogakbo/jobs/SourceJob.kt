@@ -11,6 +11,7 @@ import io.github.taehunkim.jogakbo.data.db.JobState
 import io.github.taehunkim.jogakbo.data.db.NoteDao
 import io.github.taehunkim.jogakbo.data.db.NoteEntity
 import io.github.taehunkim.jogakbo.data.db.NoteKind
+import io.github.taehunkim.jogakbo.data.prefs.EmbedMode
 import io.github.taehunkim.jogakbo.data.prefs.SettingsStore
 import io.github.taehunkim.jogakbo.fetch.ArticleExtractor
 import io.github.taehunkim.jogakbo.fetch.FetchException
@@ -19,6 +20,7 @@ import io.github.taehunkim.jogakbo.fetch.YouTubeFetcher
 import io.github.taehunkim.jogakbo.ml.ModelHost
 import io.github.taehunkim.jogakbo.notes.Bodies
 import io.github.taehunkim.jogakbo.notes.NoteJobs
+import io.github.taehunkim.jogakbo.notes.Timing
 import io.github.taehunkim.jogakbo.record.AacEncoder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -78,8 +80,11 @@ class SourceJob(
         val text = SummaryJob.input(n, dao.cues(noteId).map { Cue(it.startMs, it.endMs, it.text) })
         if (text.replace(Regex("\\s+"), "").length < SummaryJob.MIN_CHARS || n.kind == NoteKind.AUDIO && dao.cues(noteId).isEmpty()) return
         if (want && n.summary == null) {
-            dao.setSummaryState(noteId, JobState.QUEUED)
-            jobs.summarize(noteId)
+            // now, or kept for the time chosen in Settings (the note's own choice wins)
+            if (Timing.isNow(n, settings.embedMode.first() == EmbedMode.IMMEDIATE)) {
+                dao.setSummaryState(noteId, JobState.QUEUED)
+                jobs.summarize(noteId)
+            } else dao.setSummaryState(noteId, JobState.DEFERRED)
         }
     }
 

@@ -75,6 +75,11 @@ Playback (`ui/notes/AudioPlayer`, `MediaPlayer`) seeks when a cue is tapped; You
   path as chunk title, `text/TextChunker` fallback). Each chunk is embedded with `embedDocument(text, title)`
   (`retryShorter` on the 1024-token limit). `embedKey = "<model>|n<NOTE_VERSION>"`; a note is embedded again when
   `embeddedAt < updatedAt` or the key differs (model change in OndolSaem).
+- Timing of the summary, embedding and tags of a new note: the mode below is the default (IMMEDIATE = now). A note can
+  override it (`notes/Timing`, `"now": true|false` in `sourceMeta`, set by the "Summarize, index and tag now" checkbox
+  of the editor and of the add-link/audio dialog). A later summary is `JobState.DEFERRED` (no job); the SCHEDULED, IDLE
+  and manual passes make deferred summaries first, then embed and tag everything. The pass after a change (`auto`)
+  takes only notes whose timing is now; in the other modes it returns at once unless a note asked for now.
 - `EmbedScheduler` (`EmbedWorker`): IMMEDIATE (unique work 30 s after the last change, and a catch-up at start and
   after a model change), SCHEDULED (daily at a time, battery not low, optionally charging), IDLE (a check every 15 min while
   charging; the pass runs only when OndolSaem SDK's `IdleRule` says idle: the screen off for 10/30/60 min at ≥ 90 % /

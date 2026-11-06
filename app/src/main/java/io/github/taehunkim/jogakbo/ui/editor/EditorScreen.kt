@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.taehunkim.jogakbo.R
 import io.github.taehunkim.jogakbo.data.db.NoteKind
+import io.github.taehunkim.jogakbo.data.prefs.EmbedMode
 import io.github.taehunkim.jogakbo.rememberContainer
 import kotlinx.coroutines.flow.first
 import io.github.taehunkim.jogakbo.ui.common.onMain
@@ -61,6 +62,9 @@ fun EditorScreen(noteId: Long, target: EditTarget, initialText: String?, onDone:
     var original by remember { mutableStateOf(initialText.orEmpty() to "") }
     val autoMemo by c.settings.autoSummary(NoteKind.MEMO).collectAsStateWithLifecycle(false)
     var summarize by remember { mutableStateOf<Boolean?>(null) }
+    // "now" starts as the Settings default; a note that differs from it keeps its own choice
+    val defaultNow = c.settings.embedMode.collectAsStateWithLifecycle(EmbedMode.IMMEDIATE).value == EmbedMode.IMMEDIATE
+    var now by remember { mutableStateOf<Boolean?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
 
     LaunchedEffect(noteId) {
@@ -81,7 +85,7 @@ fun EditorScreen(noteId: Long, target: EditTarget, initialText: String?, onDone:
             target == EditTarget.SUMMARY -> { c.notes.updateSummary(noteId, text.text); onMain { onSaved(noteId) } }
             noteId == 0L -> {
                 if (text.text.isBlank() && title.isBlank()) { onMain { onDone() }; return@launch }
-                val id = c.notes.createMemo(title, text.text, summarize = summarize ?: autoMemo); onMain { onSaved(id) }
+                val id = c.notes.createMemo(title, text.text, summarize = summarize ?: autoMemo, timing = now?.takeIf { it != defaultNow }); onMain { onSaved(id) }
             }
             else -> { c.notes.updateMemo(noteId, title, text.text); onMain { onSaved(noteId) } }
         }
@@ -101,9 +105,15 @@ fun EditorScreen(noteId: Long, target: EditTarget, initialText: String?, onDone:
                 title, { title = it }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("title"),
                 label = { Text(stringResource(R.string.note_title_label)) }, placeholder = { Text(stringResource(R.string.note_title_hint)) },
             )
-            if (noteId == 0L) Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(summarize ?: autoMemo, { summarize = it }, modifier = Modifier.testTag("memo_summarize"))
-                Text(stringResource(R.string.memo_summarize))
+            if (noteId == 0L) Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(summarize ?: autoMemo, { summarize = it }, modifier = Modifier.testTag("memo_summarize"))
+                    Text(stringResource(R.string.memo_summarize))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(now ?: defaultNow, { now = it }, modifier = Modifier.testTag("memo_now"))
+                    Text(stringResource(R.string.timing_now))
+                }
             }
             MarkdownEditor(
                 text, { text = it }, Modifier.weight(1f).fillMaxWidth(),

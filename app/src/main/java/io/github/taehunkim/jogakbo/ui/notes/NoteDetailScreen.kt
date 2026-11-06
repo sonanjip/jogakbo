@@ -195,6 +195,7 @@ private fun SummaryCard(n: NoteEntity, onSummarize: () -> Unit, onEdit: () -> Un
                     Text(stringResource(R.string.state_summarizing), style = MaterialTheme.typography.bodyMedium)
                     LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
+                n.summaryState == JobState.DEFERRED -> Text(stringResource(R.string.summary_waiting), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("summary_waiting"))
                 n.summaryState == JobState.FAILED -> Text(stringResource(R.string.summary_failed, n.summaryError.orEmpty()), color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("summary_error"))
             }
             if (n.summary != null && open) Markdown(n.summary, Modifier.testTag("summary_text"))

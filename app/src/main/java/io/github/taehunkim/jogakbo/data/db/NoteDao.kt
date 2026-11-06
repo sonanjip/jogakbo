@@ -51,6 +51,10 @@ interface NoteDao {
     @Query("SELECT id FROM notes WHERE summaryState IN ('QUEUED','RUNNING')")
     suspend fun pendingSummaries(): List<Long>
 
+    /** Summaries waiting for their time whose original is ready. */
+    @Query("SELECT id FROM notes WHERE summaryState = 'DEFERRED' AND sourceState IN ('NONE','DONE','FAILED') ORDER BY updatedAt DESC")
+    suspend fun deferredSummaries(): List<Long>
+
     @Query("SELECT id FROM notes WHERE sourceState IN ('QUEUED','RUNNING')")
     suspend fun pendingSources(): List<Long>
 

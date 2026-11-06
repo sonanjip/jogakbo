@@ -14,7 +14,11 @@ enum class NoteKind { MEMO, LINK, YOUTUBE, AUDIO;
 }
 
 /** Progress of a background job on a note (making its original, or its summary). */
-enum class JobState { NONE, QUEUED, RUNNING, DONE, FAILED }
+enum class JobState {
+    NONE, QUEUED, RUNNING, DONE, FAILED,
+    /** A summary that waits for the time chosen in Settings (not started yet). */
+    DEFERRED,
+}
 
 /**
  * One note. [body] is the original and [summary] the summary, both Markdown. Notes made from a link or audio get

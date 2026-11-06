@@ -70,11 +70,11 @@
     <string name="embed_charging_only">Only while charging</string>
     <string name="embed_idle">While charging and not in use</string>
     <string name="embed_idle_desc">Saves battery: starts after the screen has been off a while (sooner when the battery is fuller) and stops when you use the phone. New notes are searchable by meaning afterwards.</string>
-    <string name="embed_immediate">Right after a change</string>
+    <string name="embed_immediate">Now (right after a change)</string>
     <string name="embed_immediate_desc">About 30 seconds after you stop editing.</string>
     <string name="embed_manual">Only when I ask</string>
-    <string name="embed_manual_desc">Use Embed now.</string>
-    <string name="embed_now">Embed now</string>
+    <string name="embed_manual_desc">Tap “Summarize, index and tag now”.</string>
+    <string name="embed_now">Summarize, index and tag now</string>
     <string name="embed_scheduled">Once a day</string>
     <string name="embed_scheduled_desc">At a time you choose.</string>
     <string name="embed_waiting">Notes waiting: %1$d</string>
@@ -148,8 +148,8 @@
     <string name="settings_apps">Other apps</string>
     <string name="settings_apps_desc">Apps that may search and read your notes (for example a chat assistant).</string>
     <string name="settings_auto_summary">Summarize new notes on their own</string>
-    <string name="settings_embedding">Search by meaning</string>
-    <string name="settings_embedding_desc">When notes are prepared (embedded) for search by meaning. Searching by words always works.</string>
+    <string name="settings_embedding">When to summarize, index and tag</string>
+    <string name="settings_embedding_desc">When new notes get their automatic summary, are prepared for search by meaning (embedded) and are tagged. Searching by words always works. When you add a note you can choose otherwise for that note.</string>
     <string name="settings_export">Export</string>
     <string name="settings_export_desc">A ZIP file with one Markdown file per note (readable in any app), and the audio files if you like.</string>
     <string name="settings_import">Import</string>
@@ -177,6 +177,9 @@
     <string name="state_source_failed">Failed to read</string>
     <string name="state_summarizing">Summarizing…</string>
     <string name="state_summary_failed">Summary failed</string>
+    <string name="state_summary_waiting">Summary waits</string>
+    <string name="summary_waiting">The summary is made later, at the time set in Settings. Tap Summarize to make it now.</string>
+    <string name="timing_now">Summarize, index and tag now</string>
     <string name="state_transcribing">Transcribing…</string>
     <string name="summary">Summary</string>
     <string name="summary_edited">Edited</string>

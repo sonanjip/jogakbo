@@ -19,23 +19,31 @@ class NoteIndexer(private val dao: NoteDao, private val models: ModelHost, priva
     /** Outcome of a pass. */
     data class Pass(val embedded: Int, val left: Int, val noModel: Boolean = false)
 
-    /** Embeds every note that needs it. [onProgress] gets (done, total). */
-    /** Embeds the notes that need it; stops early (the rest stays pending) when [keepGoing] turns false. */
-    suspend fun embedPending(onProgress: (Int, Int) -> Unit = { _, _ -> }, keepGoing: () -> Boolean = { true }): Pass {
+    /**
+     * Embeds the notes that need it ([onProgress] gets (done, total)); stops early (the rest stays pending) when
+     * [keepGoing] turns false. Notes [accept] refuses are left alone and not counted as left.
+     */
+    suspend fun embedPending(
+        onProgress: (Int, Int) -> Unit = { _, _ -> },
+        keepGoing: () -> Boolean = { true },
+        accept: (NoteEntity) -> Boolean = { true },
+    ): Pass {
         val lease = models.embedder(background = true) ?: return Pass(0, -1, noModel = true)
         lease.use { l ->
             val key = key(l.value.modelId)
             val ids = dao.needingEmbedding(key)
             var done = 0
+            var skipped = 0
             for (id in ids) {
                 coroutineContext.ensureActive()
                 if (!keepGoing()) break
-                onProgress(done, ids.size)
                 val note = dao.get(id) ?: continue
+                if (!accept(note)) { skipped++; continue }
+                onProgress(done, ids.size - skipped)
                 embed(note, l.value, key)
                 done++
             }
-            return Pass(done, ids.size - done)
+            return Pass(done, ids.size - done - skipped)
         }
     }
 

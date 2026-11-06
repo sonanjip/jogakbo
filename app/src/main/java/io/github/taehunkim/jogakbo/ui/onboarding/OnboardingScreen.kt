@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -28,6 +29,8 @@ import kotlinx.coroutines.launch
 fun OnboardingScreen(onDone: () -> Unit) {
     val c = rememberContainer()
     val scope = rememberCoroutineScope()
+    // A Surface gives the screen the theme background and onSurface text (no Scaffold here; dark mode needs both).
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(
         Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp).testTag("onboarding"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -42,5 +45,6 @@ fun OnboardingScreen(onDone: () -> Unit) {
         Button(onClick = { scope.launch { c.settings.setOnboardingDone(true); onDone() } }, modifier = Modifier.fillMaxWidth().testTag("onboarding_start")) {
             Text(stringResource(R.string.onboarding_start))
         }
+    }
     }
 }

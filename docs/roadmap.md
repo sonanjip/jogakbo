@@ -16,7 +16,12 @@ with a chosen embedding time, ZIP/Markdown export and import, and the notes SDK 
 4. **More sources**: PDFs and images shared to the app (OCR through OndolSaem), podcasts (audio URLs), web pages
    that need JavaScript.
 5. **Organizing**: tags or folders, pinning, merging notes; related notes by meaning under each note.
-6. **Nunsori**: optionally index notes into Nunsori's central index (the roadmap's provider sketch), so one search
+6. **YouTube through the official API**: an optional YouTube Data API v3 key (entered by the user in Settings) for
+   the title, channel, description, length and caption list (`videos.list`, `captions.list`), so these no longer
+   depend on the watch page. Caveat: downloading caption text (`captions.download`) needs OAuth and is allowed only
+   for the video's owner, so the subtitles themselves stay on the current page-based fetch; without a key everything
+   works as now.
+7. **Nunsori**: optionally index notes into Nunsori's central index (the roadmap's provider sketch), so one search
    covers files and notes.
 
 ## Limits

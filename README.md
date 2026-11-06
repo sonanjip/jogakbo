@@ -4,6 +4,12 @@
 
 An AI note app for Android whose AI runs on the phone: memos you write, web pages, YouTube videos and recordings, each with a summary on top and the original below. A **조각보** (jogakbo) is a Korean wrapping cloth sewn from scraps: scraps from the web, videos, recordings and your own memos become one place to look things up. *Journal Of Gathered Audio, Knowledge, Bookmarks & Originals.*
 
+<p>
+<img src="docs/images/demo.gif" width="260" alt="A memo is summarized on the phone, tagged, and found by meaning">
+</p>
+
+*A memo gets an on-device summary and tags, and is found by meaning ("a vacation schedule in the mountains" finds the Jeju trip plan).*
+
 | Part | App | What it does |
 |---|---|---|
 | Notes | **Jogakbo** (this repository) | Notes, summaries, recordings, search, export and import |

@@ -153,7 +153,7 @@ class ModelHost(
     companion object {
         private const val TAG = "Jogakbo.ModelHost"
         const val BACKEND = "OndolSaem"
-        const val INSTALL_URL = "https://github.com/TaeHunKim/ondolsaem/releases"
+        const val INSTALL_URL = "https://github.com/sonanjip/ondolsaem/releases"
 
         fun statusFor(reason: HostUnavailableException.Reason): HostState.Status = when (reason) {
             HostUnavailableException.Reason.NOT_INSTALLED -> HostState.Status.NOT_INSTALLED

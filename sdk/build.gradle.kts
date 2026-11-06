@@ -4,7 +4,7 @@ plugins {
 }
 
 // Client SDK version (git tag sdk-vX.Y.Z on release). JitPack serves the only published artifact of the repository
-// as com.github.TaeHunKim:jogakbo:<tag>; clients substitute that module with this project in a composite build.
+// as com.github.sonanjip:jogakbo:<tag>; clients substitute that module with this project in a composite build.
 group = "com.github.taehunkim.jogakbo"
 version = "0.1.0"
 

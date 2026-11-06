@@ -7,8 +7,8 @@ An AI note app for Android whose AI runs on the phone: memos you write, web page
 | Part | App | What it does |
 |---|---|---|
 | Notes | **Jogakbo** (this repository) | Notes, summaries, recordings, search, export and import |
-| AI models | [OndolSaem](https://github.com/TaeHunKim/ondolsaem) (required for AI) | Runs the language model (summaries), speech recognition, the embedding model (search) and the decision model (tags) on the phone |
-| Chat | [Malbotdari](https://github.com/TaeHunKim/malbotdari) (optional) | Searches and reads your notes in a chat through Jogakbo's SDK |
+| AI models | [OndolSaem](https://github.com/sonanjip/ondolsaem) (required for AI) | Runs the language model (summaries), speech recognition, the embedding model (search) and the decision model (tags) on the phone |
+| Chat | [Malbotdari](https://github.com/sonanjip/malbotdari) (optional) | Searches and reads your notes in a chat through Jogakbo's SDK |
 
 ## Features
 

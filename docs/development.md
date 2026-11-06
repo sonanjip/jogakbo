@@ -2,7 +2,7 @@
 
 - `source scripts/env.sh` sets JAVA_HOME (Android Studio's JBR), ANDROID_HOME, PATH, `APP_ID`.
 - `local.properties`: `sdk.dir=…` and `ondolsaem.dir=../ondolsaem` to build the OndolSaem SDK from the sibling
-  checkout (composite build); without it the SDK comes from JitPack (`com.github.TaeHunKim:ondolsaem:sdk-v0.4.0`, API 3 for the decision model).
+  checkout (composite build); without it the SDK comes from JitPack (`com.github.sonanjip:ondolsaem:sdk-v0.5.0`, API 3 for the decision model).
 - Build and check: `./gradlew assembleDebug testDebugUnitTest lintDebug`.
 - Instrumented tests: `./gradlew installDebug installDebugAndroidTest`, then
   `adb shell am instrument -w io.github.taehunkim.jogakbo.test/androidx.test.runner.AndroidJUnitRunner`

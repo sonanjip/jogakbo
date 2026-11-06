@@ -2,7 +2,7 @@
 
 Other apps on the phone (Malbotdari first) search and read Jogakbo's notes through a bound service. The SDK is the
 `:sdk` module (`io.github.taehunkim.jogakbo.sdk`, version in `sdk/build.gradle.kts`, JitPack
-`com.github.TaeHunKim:jogakbo:sdk-v<version>` once tagged; until then a composite build with `jogakbo.dir`).
+`com.github.sonanjip:jogakbo:sdk-v<version>` once tagged; until then a composite build with `jogakbo.dir`).
 
 ## Access
 

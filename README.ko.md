@@ -7,8 +7,8 @@ AI가 폰 안에서 돌아가는 안드로이드 노트 앱입니다. 직접 쓴
 | 부분 | 앱 | 하는 일 |
 |---|---|---|
 | 노트 | **조각보** (이 저장소) | 노트, 요약, 녹음, 검색, 내보내기·가져오기 |
-| AI 모델 | [온돌샘](https://github.com/TaeHunKim/ondolsaem) (AI 기능에 필요) | 언어 모델(요약), 음성 인식, 임베딩 모델(검색), 판단 모델(태그)을 폰에서 실행 |
-| 채팅 | [말벗다리](https://github.com/TaeHunKim/malbotdari) (선택) | 조각보 SDK로 채팅에서 노트를 검색하고 읽음 |
+| AI 모델 | [온돌샘](https://github.com/sonanjip/ondolsaem) (AI 기능에 필요) | 언어 모델(요약), 음성 인식, 임베딩 모델(검색), 판단 모델(태그)을 폰에서 실행 |
+| 채팅 | [말벗다리](https://github.com/sonanjip/malbotdari) (선택) | 조각보 SDK로 채팅에서 노트를 검색하고 읽음 |
 
 ## 기능
 

@@ -25,6 +25,14 @@ Recordings have a player: tap a line to play from there. YouTube notes list the 
 video at that time. A link or audio file that failed shows *Retry*. The ⋮ menu shares the note as Markdown, deletes
 its audio (keeping the text) or deletes the note.
 
+## Tags
+
+Notes carry tags, shown as `#tag` in the list and as chips on the note. With *Tag notes automatically* on (Settings ›
+Tags) OndolSaem's decision model checks each note against each tag when notes are embedded; a tag it is unsure about
+appears as `#tag?`: tap to add it, × to decline. Tap × on a tag to take it off; *Tags* on a note opens the full list
+to tick. Tags you add or take off yourself are never changed again by the model. The chips under the kind filters show
+notes with any of the chosen tags.
+
 ## Search
 
 Type in the search field: notes match by words right away and by meaning once they are embedded (Settings ›
@@ -35,9 +43,11 @@ Notes › Search by meaning). The chips filter by kind.
 - **Notes**: instructions for every summary, the summary language (same as the original, or the app's language),
   which kinds are summarized automatically, and when notes are embedded (right after a change, while charging and
   idle, once a day at a time, or only with *Embed now*).
-- **Data**: export a ZIP (one Markdown file per note; summaries and audio optional) and import a ZIP or a Markdown
+- **Tags**: your tags (add, edit with an optional description of what belongs there, reorder, delete), automatic
+  tagging on or off, and *Tag all notes again*. Seven example tags are added at first start.
+- **Data**: export a ZIP (one Markdown file per note with its tags, and the tag list; summaries and audio optional) and import a ZIP or a Markdown
   or text file. Notes already here are only replaced by newer versions.
-- **Connections**: OndolSaem and its models; other apps that asked for your notes (allow, deny, forget).
+- **Connections**: OndolSaem and its models (the decision model is needed for automatic tags); other apps that asked for your notes (allow, deny, forget).
 - **App**: permissions, language, licenses.
 
 ## With Malbotdari

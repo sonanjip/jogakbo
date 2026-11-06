@@ -106,6 +106,9 @@ class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
         )
         val pass = c.indexer.embedPending { d, t -> if (t > 3) runCatching { runBlocking { setForeground(info(d, t)) } } }
         if (pass.embedded > 0) NotesEvents.notifyChanged(applicationContext)
+        // tags follow the same timing; a missing decision model does not make the pass retry
+        val tagged = if (c.settings.autoTag.first()) runCatching { c.tagger.tagPending() }.getOrNull() else null
+        if ((tagged?.tagged ?: 0) > 0 && pass.embedded == 0) NotesEvents.notifyChanged(applicationContext)
         return if (pass.noModel || pass.left > 0) Result.retry() else Result.success()
     }
 

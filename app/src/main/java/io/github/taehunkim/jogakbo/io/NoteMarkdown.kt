@@ -25,6 +25,9 @@ data class ParsedNote(
     /** Paths inside the archive. */
     val audioPath: String?,
     val cuesPath: String?,
+    /** Tag names on the note, and those the user declined (export format 1 adds them; missing in older files). */
+    val tags: List<String> = emptyList(),
+    val tagsRejected: List<String> = emptyList(),
 )
 
 /**
@@ -39,7 +42,10 @@ object NoteMarkdown {
     private const val SUMMARY_HEAD = "## Summary\n\n"
     private const val ORIGINAL_HEAD = "## Original\n\n"
 
-    fun write(n: NoteEntity, zone: ZoneId, includeSummary: Boolean, audioPath: String?, cuesPath: String?): String = buildString {
+    fun write(
+        n: NoteEntity, zone: ZoneId, includeSummary: Boolean, audioPath: String?, cuesPath: String?,
+        tags: List<String> = emptyList(), tagsRejected: List<String> = emptyList(),
+    ): String = buildString {
         append("---\n")
         field("jogakbo", FORMAT.toString())
         field("uuid", n.uuid)
@@ -56,6 +62,8 @@ object NoteMarkdown {
         n.sourceMeta?.takeIf { it.isNotBlank() && it != "{}" }?.let { field("source_meta", q(it)) }
         audioPath?.let { field("audio", q(it)) }
         cuesPath?.let { field("cues", q(it)) }
+        if (tags.isNotEmpty()) field("tags", list(tags))
+        if (tagsRejected.isNotEmpty()) field("tags_rejected", list(tagsRejected))
         append("---\n\n")
         append("# ").append(n.title.replace("\n", " ")).append("\n\n")
         if (includeSummary && !n.summary.isNullOrBlank()) {
@@ -65,6 +73,24 @@ object NoteMarkdown {
     }
 
     private fun StringBuilder.field(k: String, v: String) { append(k).append(": ").append(v).append('\n') }
+
+    /** A YAML flow sequence of JSON strings (["a", "b"]), which other Markdown apps read as tags too. */
+    private fun list(items: List<String>) = items.joinToString(", ", "[", "]") { q(it) }
+
+    /**
+     * Tags from front matter: a flow sequence (["a", "b"] or [a, b]), a comma-separated value, or (handled by
+     * [frontMatter]) a block list. A leading # is dropped.
+     */
+    fun parseList(v: String?): List<String> {
+        if (v.isNullOrBlank()) return emptyList()
+        val t = v.trim()
+        val plain = { x: String -> x.split(',').map { it.trim().trim('"', '\'') } }
+        val items = if (t.startsWith("[")) runCatching {
+            val a = org.json.JSONArray(t)
+            (0 until a.length()).map { a.getString(it) }
+        }.getOrElse { plain(t.removePrefix("[").removeSuffix("]")) } else plain(t)
+        return items.map { it.trim().removePrefix("#").trim() }.filter { it.isNotEmpty() }.distinct()
+    }
 
     /** A YAML scalar as a JSON string (valid YAML double-quoted). */
     private fun q(s: String) = JSONObject.quote(s)
@@ -109,6 +135,8 @@ object NoteMarkdown {
             durationMs = f["duration_ms"]?.toLongOrNull(),
             audioPath = f["audio"],
             cuesPath = f["cues"],
+            tags = parseList(f["tags"]),
+            tagsRejected = parseList(f["tags_rejected"]),
         )
     }
 
@@ -123,7 +151,16 @@ object NoteMarkdown {
         val block = text.substring(4, end)
         val after = text.substring(end + 4).removePrefix("\n")
         val map = LinkedHashMap<String, String>()
+        var listKey: String? = null
         for (line in block.lines()) {
+            // a block list under the previous key ("tags:" then "  - a"): kept as a comma-separated value
+            val item = Regex("^\\s*-\\s+(.*)$").find(line)
+            if (listKey != null && item != null) {
+                val v = item.groupValues[1].trim().trim('"', '\'')
+                map[listKey] = map[listKey].orEmpty().let { if (it.isEmpty()) v else "$it,$v" }
+                continue
+            }
+            listKey = null
             val i = line.indexOf(':')
             if (i <= 0 || line.startsWith(" ") || line.startsWith("#")) continue
             val k = line.substring(0, i).trim()
@@ -132,6 +169,7 @@ object NoteMarkdown {
                 v = runCatching { org.json.JSONArray("[$v]").getString(0) }.getOrDefault(v.substring(1, v.length - 1))
             } else if (v.startsWith("'") && v.endsWith("'") && v.length >= 2) v = v.substring(1, v.length - 1).replace("''", "'")
             map[k] = v
+            if (v.isEmpty()) listKey = k
         }
         return map to after
     }

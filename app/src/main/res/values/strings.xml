@@ -195,4 +195,36 @@
     <string name="video_no_subtitles">This video has no subtitles; only its description was saved.</string>
     <string name="video_transcript">Subtitles</string>
     <string name="audio_cannot_read">Cannot read the audio file: %1$s</string>
+    <string-array name="tag_examples">
+        <item>Work</item>
+        <item>Study</item>
+        <item>Ideas</item>
+        <item>Travel</item>
+        <item>Health</item>
+        <item>Money</item>
+        <item>Cooking</item>
+    </string-array>
+    <string name="settings_tab_tags">Tags</string>
+    <string name="settings_tags">Tags</string>
+    <string name="settings_tags_desc">Your own tags for notes. With automatic tagging, OndolSaem\'s decision model checks every note against every tag (yes, no or unsure) at the embedding time set in the Notes tab. Unsure ones are offered on the note. Tags you add or remove yourself are never changed.</string>
+    <string name="settings_auto_tag">Tag notes automatically</string>
+    <string name="settings_auto_tag_desc">Needs the decision model in OndolSaem. A description helps it, e.g. “Money: spending, receipts, savings”.</string>
+    <string name="tags_no_model">The decision model is not downloaded in OndolSaem yet: notes are not tagged until it is.</string>
+    <string name="tags_empty">No tags yet.</string>
+    <string name="tags">Tags</string>
+    <string name="tag_add">Add tag</string>
+    <string name="tag_edit">Edit tag</string>
+    <string name="tag_delete">Delete tag</string>
+    <string name="tag_up">Move up</string>
+    <string name="tag_down">Move down</string>
+    <string name="tag_retag_all">Tag all notes again</string>
+    <string name="tag_name">Name</string>
+    <string name="tag_description">What belongs here (optional)</string>
+    <string name="tag_description_hint">e.g. spending, receipts, savings</string>
+    <string name="tag_error_blank">Enter a name.</string>
+    <string name="tag_error_duplicate">This tag already exists.</string>
+    <string name="tag_remove">Remove tag</string>
+    <string name="tag_accept">Add this tag</string>
+    <string name="tag_decline">Not this tag</string>
+    <string name="model_decision">Tags (decisions)</string>
 </resources>

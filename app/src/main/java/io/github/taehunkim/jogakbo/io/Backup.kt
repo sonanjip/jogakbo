@@ -7,6 +7,10 @@ import io.github.taehunkim.jogakbo.data.db.CueEntity
 import io.github.taehunkim.jogakbo.data.db.JobState
 import io.github.taehunkim.jogakbo.data.db.NoteDao
 import io.github.taehunkim.jogakbo.data.db.NoteEntity
+import io.github.taehunkim.jogakbo.data.db.NoteTagEntity
+import io.github.taehunkim.jogakbo.data.db.TagDao
+import io.github.taehunkim.jogakbo.data.db.TagEntity
+import io.github.taehunkim.jogakbo.data.db.TagState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -21,8 +25,8 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
- * Export: a ZIP with one Markdown file per note (notes/…) and, when asked, the audio files and their transcript
- * lines (audio/…). Import reads such a ZIP, or a single .md/.txt file; a note already here (same uuid) is
+ * Export: a ZIP with one Markdown file per note (notes/…, with its tags in the front matter), the tag list
+ * (tags.json: names, descriptions, order) and, when asked, the audio files and their transcript lines (audio/…). Import reads such a ZIP, or a single .md/.txt file; a note already here (same uuid) is
  * replaced only by a newer version.
  */
 class Backup(
@@ -30,6 +34,8 @@ class Backup(
     private val dao: NoteDao,
     private val audioDir: () -> File,
     private val onImported: () -> Unit = {},
+    /** Tags travel with the notes; null leaves them out (tests of the notes alone). */
+    private val tags: TagDao? = null,
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -43,7 +49,13 @@ class Backup(
     suspend fun export(out: OutputStream, includeAudio: Boolean, includeSummaries: Boolean): ExportResult = withContext(Dispatchers.IO) {
         var audio = 0
         val notes = dao.all()
+        val tagList = tags?.tags().orEmpty()
+        val noteTags = tags?.ofNotes(notes.map { it.id }).orEmpty().groupBy { it.noteId }
         ZipOutputStream(out.buffered()).use { zip ->
+            if (tagList.isNotEmpty()) {
+                zip.putNextEntry(ZipEntry(TAGS_FILE))
+                zip.write(tagsJson(tagList).toByteArray()); zip.closeEntry()
+            }
             val used = HashSet<String>()
             for (n in notes) {
                 val audioFile = n.audioFile?.let { File(audioDir(), it) }?.takeIf { includeAudio && it.exists() }
@@ -53,7 +65,13 @@ class Backup(
                 var name = "notes/" + NoteMarkdown.fileName(n, zone)
                 while (!used.add(name)) name = name.removeSuffix(".md") + "-1.md"
                 zip.putNextEntry(ZipEntry(name))
-                zip.write(NoteMarkdown.write(n, zone, includeSummaries, audioPath, cuesPath).toByteArray())
+                val mine = noteTags[n.id].orEmpty()
+                zip.write(
+                    NoteMarkdown.write(
+                        n, zone, includeSummaries, audioPath, cuesPath,
+                        tags = mine.filter { it.state.applied }.map { it.name }, tagsRejected = mine.filter { it.state == TagState.REJECTED }.map { it.name },
+                    ).toByteArray(),
+                )
                 zip.closeEntry()
                 if (cuesPath != null) {
                     zip.putNextEntry(ZipEntry(cuesPath))
@@ -107,6 +125,7 @@ class Backup(
                     else files[path] = File(tmp, files.size.toString()).also { f -> f.outputStream().use { zip.copyTo(it) } }
                 }
             }
+            texts[TAGS_FILE]?.let { importTags(it) }
             val outcomes = texts.filterKeys { !it.endsWith(".json") }.map { (path, text) ->
                 val p = NoteMarkdown.read(text, path)
                 merge(p, mapOf("cues" to p.cuesPath?.let { texts[it] }, "audio" to null), p.audioPath?.let { files[it] })
@@ -135,14 +154,41 @@ class Backup(
         )
         val id = if (existing != null) { dao.update(note); existing.id } else dao.insert(note)
         extra["cues"]?.let { json -> dao.replaceCues(id, parseCues(json)) }
+        // the tags shown in the export become the user's own here (the decision model may differ on this phone)
+        tags?.let { t ->
+            val rows = p.tags.map { NoteTagEntity(id, tagId(t, it), TagState.MANUAL, at = now) } +
+                p.tagsRejected.map { NoteTagEntity(id, tagId(t, it), TagState.REJECTED, at = now) }
+            if (rows.isNotEmpty()) t.upsert(rows)
+        }
         return if (existing != null) Outcome.UPDATED else Outcome.ADDED
     }
+
+    /** Adds the tags of a backup that are not here yet (by name); existing tags keep their own settings. */
+    private suspend fun importTags(json: String) {
+        val t = tags ?: return
+        val a = runCatching { JSONArray(json) }.getOrNull() ?: return
+        for (i in 0 until a.length()) {
+            val o = a.optJSONObject(i) ?: continue
+            val name = o.optString("name").trim().take(io.github.taehunkim.jogakbo.tags.TagRepository.MAX_NAME)
+            if (name.isEmpty() || t.tagByName(name) != null) continue
+            t.insertTag(TagEntity(name = name, description = o.optString("description"), ordinal = t.maxOrdinal() + 1, createdAt = clock()))
+        }
+    }
+
+    private suspend fun tagId(t: TagDao, name: String): Long =
+        t.tagByName(name)?.id ?: t.insertTag(TagEntity(name = name.take(io.github.taehunkim.jogakbo.tags.TagRepository.MAX_NAME), ordinal = t.maxOrdinal() + 1, createdAt = clock()))
 
     private fun displayName(uri: Uri): String? = runCatching {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
     }.getOrNull()
 
     companion object {
+        const val TAGS_FILE = "tags.json"
+
+        fun tagsJson(tags: List<TagEntity>): String = JSONArray().apply {
+            tags.forEach { put(JSONObject().put("name", it.name).put("description", it.description).put("ordinal", it.ordinal)) }
+        }.toString(1)
+
         fun cuesJson(cues: List<CueEntity>): String = JSONArray().apply {
             cues.forEach { put(JSONObject().put("s", it.startMs).put("e", it.endMs).put("t", it.text)) }
         }.toString()

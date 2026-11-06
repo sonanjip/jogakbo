@@ -53,6 +53,18 @@ class NoteMarkdownTest {
         assertEquals("Other app", fm.title); assertEquals("Body", fm.body); assertNull(fm.uuid)
     }
 
+    @Test fun tagsRoundTripAndOtherAppsTagsAreRead() {
+        val md = NoteMarkdown.write(note, zone, true, null, null, tags = listOf("여행", "a \"b\""), tagsRejected = listOf("돈"))
+        assertTrue(md, md.contains("tags: [\"여행\", \"a \\\"b\\\"\"]\n"))
+        val p = NoteMarkdown.read(md, "x.md")
+        assertEquals(listOf("여행", "a \"b\""), p.tags); assertEquals(listOf("돈"), p.tagsRejected)
+        assertEquals(listOf("a", "b c"), NoteMarkdown.read("---\ntags: [a, #b c]\n---\nx", "o.md").tags)
+        assertEquals(listOf("a", "b"), NoteMarkdown.read("---\ntags:\n  - a\n  - '#b'\ntitle: T\n---\nx", "o.md").tags)
+        assertEquals("T", NoteMarkdown.read("---\ntags:\n  - a\ntitle: T\n---\nx", "o.md").title)
+        assertEquals(listOf("x", "y"), NoteMarkdown.read("---\ntags: x, y\n---\nx", "o.md").tags)
+        assertEquals(emptyList<String>(), NoteMarkdown.read("no front matter", "o.md").tags)
+    }
+
     @Test fun fileNames() {
         assertEquals("20231115-a-quoted-title-1234abcd.md", NoteMarkdown.fileName(note, zone))
         assertEquals("20231115-회의-메모-1234abcd.md", NoteMarkdown.fileName(note.copy(title = "회의 메모!"), zone))

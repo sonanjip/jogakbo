@@ -28,6 +28,9 @@ class SettingsStore(private val context: Context) {
     private val kApprovals = stringPreferencesKey("api_approvals")
     private val kEmbeddingModel = stringPreferencesKey("embedding_model_id")
     private val kChatModel = stringPreferencesKey("chat_model_id")
+    private val kDecisionModel = stringPreferencesKey("decision_model_id")
+    private val kAutoTag = booleanPreferencesKey("auto_tag")
+    private val kTagsSeeded = booleanPreferencesKey("tags_seeded")
     private fun kAuto(kind: NoteKind) = booleanPreferencesKey("auto_summary_${kind.wire}")
 
     val embedMode: Flow<EmbedMode> = context.dataStore.data.map { p -> p[kEmbedMode]?.let { runCatching { EmbedMode.valueOf(it) }.getOrNull() } ?: EmbedMode.IMMEDIATE }
@@ -63,6 +66,16 @@ class SettingsStore(private val context: Context) {
     suspend fun setEmbeddingModelId(id: String) { context.dataStore.edit { it[kEmbeddingModel] = id } }
     val chatModelId: Flow<String> = context.dataStore.data.map { it[kChatModel] ?: "" }
     suspend fun setChatModelId(id: String) { context.dataStore.edit { it[kChatModel] = id } }
+    val decisionModelId: Flow<String> = context.dataStore.data.map { it[kDecisionModel] ?: "" }
+    suspend fun setDecisionModelId(id: String) { context.dataStore.edit { it[kDecisionModel] = id } }
+
+    /** Tag notes with the decision model, at the embedding time. */
+    val autoTag: Flow<Boolean> = context.dataStore.data.map { it[kAutoTag] ?: true }
+    suspend fun setAutoTag(on: Boolean) { context.dataStore.edit { it[kAutoTag] = on } }
+
+    /** The example tags were added once (deleting them does not bring them back). */
+    val tagsSeeded: Flow<Boolean> = context.dataStore.data.map { it[kTagsSeeded] ?: false }
+    suspend fun setTagsSeeded() { context.dataStore.edit { it[kTagsSeeded] = true } }
 
     companion object {
         const val DEFAULT_SCHEDULE_MINUTES = 180

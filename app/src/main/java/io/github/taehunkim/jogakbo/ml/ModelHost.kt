@@ -68,6 +68,7 @@ class ModelHost(
     var textOverride: (suspend () -> TextModel?)? = null
     var embedderOverride: (suspend () -> Embedder?)? = null
     var speechOverride: (suspend () -> SpeechTools)? = null
+    var deciderOverride: (suspend () -> Decider?)? = null
 
     init {
         scope.launch { client.modelChanges.collect { refresh() } }
@@ -91,6 +92,8 @@ class ModelHost(
             if (settings.embeddingModelId.first() != emb) settings.setEmbeddingModelId(emb)
             val chat = next.models[Categories.LLM]?.takeIf { it.ready }?.id.orEmpty()
             if (settings.chatModelId.first() != chat) settings.setChatModelId(chat)
+            val decision = next.models[Categories.DECISION]?.takeIf { it.ready }?.id.orEmpty()
+            if (settings.decisionModelId.first() != decision) settings.setDecisionModelId(decision)
         }
         _state.value = next
         next
@@ -126,6 +129,17 @@ class ModelHost(
         if (info == null || !info.ready) { lease.close(); return null }
         val priority = if (background) OndolSaem.PRIORITY_BACKGROUND else OndolSaem.PRIORITY_INTERACTIVE
         return Lease(RemoteEmbedder(client, info, priority) { scope.launch { refresh() } }) { lease.close() }
+    }
+
+    /**
+     * Null when the host is older than API 3 or its decision model is missing. Used in the background (tagging), so
+     * its requests wait behind interactive ones.
+     */
+    suspend fun decider(): Decider? {
+        deciderOverride?.let { return it() }
+        val info = known(Categories.DECISION)
+        if (info == null || !info.ready || !runCatching { client.supports(OndolSaem.Api.V3) }.getOrDefault(false)) return null
+        return RemoteDecider(client, info.id)
     }
 
     /** Voice activity detection works when the host is reachable; transcription needs its speech model. */
@@ -190,4 +204,15 @@ private class RemoteSpeechTools(private val client: OndolSaemClient, override va
         if (!canTranscribe) return
         client.transcribe(pcm, fromMs) { s, e, t -> onCue(Cue(s, e, t)) }
     }
+}
+
+/** OndolSaem's decision model: P(yes) per statement for a text. */
+interface Decider {
+    val modelId: String
+    suspend fun entail(premise: String, hypotheses: List<String>): FloatArray
+}
+
+private class RemoteDecider(private val client: OndolSaemClient, override val modelId: String) : Decider {
+    override suspend fun entail(premise: String, hypotheses: List<String>) =
+        client.entail(premise, hypotheses, OndolSaem.PRIORITY_BACKGROUND)
 }

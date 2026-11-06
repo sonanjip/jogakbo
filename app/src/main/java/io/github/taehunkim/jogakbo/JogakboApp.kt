@@ -48,13 +48,15 @@ class AppContainer(val context: Context) {
     val summaryJob by lazy { SummaryJob(context, db.noteDao(), models, settings, jobs) }
     val sourceJob by lazy { SourceJob(context, db.noteDao(), http, models, settings, jobs, { notes.audioDir }) }
     val indexer by lazy { NoteIndexer(db.noteDao(), models) }
+    val tagger by lazy { io.github.taehunkim.jogakbo.tags.NoteTagger(db.noteDao(), db.tagDao(), { models.decider() }) }
+    val tags by lazy { io.github.taehunkim.jogakbo.tags.TagRepository(db.tagDao(), onTagsChanged = { embedScheduler.onNoteChanged() }) }
     val search by lazy { NoteSearch(db.noteDao()) { q -> models.embedder()?.use { it.value.modelId to it.value.embedQuery(q) } } }
-    val backup by lazy { Backup(context, db.noteDao(), { notes.audioDir }, onImported = { embedScheduler.onNoteChanged() }) }
+    val backup by lazy { Backup(context, db.noteDao(), { notes.audioDir }, onImported = { embedScheduler.onNoteChanged() }, tags = db.tagDao()) }
     val approvals by lazy { Approvals({ settings.apiApprovalsJson.first() }, settings::setApiApprovalsJson, appScope) }
     val callerCheck by lazy {
         CallerCheck(context, approvals).apply { onRequest = { pkg -> Notifications.approvalRequest(context, appLabel(pkg)) } }
     }
-    val notesApi by lazy { NotesApi(db.noteDao(), search, BuildConfig.VERSION_NAME) }
+    val notesApi by lazy { NotesApi(db.noteDao(), search, BuildConfig.VERSION_NAME, tags = db.tagDao()) }
 
     /** The name another app shows in the launcher (its package name if it has none). */
     fun appLabel(pkg: String): String = runCatching {
@@ -72,6 +74,12 @@ class JogakboApp : Application() {
         Notifications.ensureChannels(this)
         container.embedScheduler.start()
         container.appScope.launch {
+            if (!container.settings.tagsSeeded.first()) {
+                container.tags.seed(resources.getStringArray(R.array.tag_examples).toList())
+                container.settings.setTagsSeeded()
+            }
+        }
+        container.appScope.launch {
             container.models.refresh()
             // a recording the app was killed during: finish it from its raw audio
             val dao = container.db.noteDao()
@@ -84,6 +92,12 @@ class JogakboApp : Application() {
         // the embedding model changed in OndolSaem: notes are embedded again
         container.appScope.launch {
             container.settings.embeddingModelId.distinctUntilChanged().drop(1).collect {
+                if (it.isNotEmpty() && container.settings.embedMode.first() == EmbedMode.IMMEDIATE) container.embedScheduler.runNow(5)
+            }
+        }
+        // a new decision model answers again
+        container.appScope.launch {
+            container.settings.decisionModelId.distinctUntilChanged().drop(1).collect {
                 if (it.isNotEmpty() && container.settings.embedMode.first() == EmbedMode.IMMEDIATE) container.embedScheduler.runNow(5)
             }
         }

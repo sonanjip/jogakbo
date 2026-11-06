@@ -98,6 +98,11 @@ fun NotesListScreen(
     val notes by c.db.noteDao().observeAll().collectAsStateWithLifecycle(emptyList())
     var query by rememberSaveable { mutableStateOf("") }
     var kinds by remember { mutableStateOf(emptySet<NoteKind>()) }
+    var tagFilter by rememberSaveable { mutableStateOf(emptyList<Long>()) }
+    val allTags by c.db.tagDao().observeTags().collectAsStateWithLifecycle(emptyList())
+    val applied by c.db.tagDao().observeApplied().collectAsStateWithLifecycle(emptyList())
+    val tagsOf = remember(applied) { applied.groupBy({ it.noteId }, { it.name }) }
+    val notesWithTag = remember(applied) { applied.groupBy({ it.tagId }, { it.noteId }).mapValues { it.value.toSet() } }
     var hits by remember { mutableStateOf<List<NoteHit>?>(null) }
     var menu by remember { mutableStateOf(false) }
     var addLink by remember { mutableStateOf<String?>(null) }
@@ -162,18 +167,29 @@ fun NotesListScreen(
                     FilterChip(selected = k in kinds, onClick = { kinds = if (k in kinds) kinds - k else kinds + k }, label = { Text(stringResource(kindLabel(k))) }, leadingIcon = { Icon(kindIcon(k), null, Modifier.size(18.dp)) })
                 }
             }
+            if (allTags.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp).testTag("tag_filters"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                allTags.forEach { t ->
+                    FilterChip(
+                        selected = t.id in tagFilter, onClick = { tagFilter = if (t.id in tagFilter) tagFilter - t.id else tagFilter + t.id },
+                        label = { Text("#" + t.name) }, modifier = Modifier.testTag("tag_filter_${t.name}"),
+                    )
+                }
+            }
             recording?.let { r ->
                 TextButton(onClick = onRecording, modifier = Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.recording_in_progress)) }
             }
-            val shown: List<Pair<NoteEntity, String?>> = hits?.map { it.note to it.snippet }
-                ?: notes.filter { kinds.isEmpty() || it.kind in kinds }.map { it to null }
+            // any of the chosen tags
+            val tagged = if (tagFilter.isEmpty()) null else tagFilter.flatMap { notesWithTag[it].orEmpty() }.toSet()
+            val shown: List<Pair<NoteEntity, String?>> = (hits?.map { it.note to it.snippet }
+                ?: notes.filter { kinds.isEmpty() || it.kind in kinds }.map { it to null })
+                .filter { tagged == null || it.first.id in tagged }
             if (shown.isEmpty()) {
                 Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                     Text(stringResource(if (hits != null) R.string.search_none else R.string.notes_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else LazyColumn(Modifier.fillMaxSize().testTag("notes_list")) {
                 items(shown, key = { it.first.id }) { (n, snippet) ->
-                    NoteRow(n, snippet) { onOpen(n.id) }
+                    NoteRow(n, snippet, tagsOf[n.id].orEmpty()) { onOpen(n.id) }
                     HorizontalDivider()
                 }
             }
@@ -205,7 +221,7 @@ fun NotesListScreen(
 }
 
 @Composable
-private fun NoteRow(n: NoteEntity, snippet: String?, onClick: () -> Unit) {
+private fun NoteRow(n: NoteEntity, snippet: String?, tags: List<String>, onClick: () -> Unit) {
     val ctx = LocalContext.current
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp).testTag("note_${n.id}"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Icon(kindIcon(n.kind), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
@@ -217,6 +233,10 @@ private fun NoteRow(n: NoteEntity, snippet: String?, onClick: () -> Unit) {
                 Text(formatDate(ctx, n.createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 status(n)?.let { Text(stringResource(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary) }
             }
+            if (tags.isNotEmpty()) Text(
+                tags.joinToString(" ") { "#$it" }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("note_tags_${n.id}"),
+            )
             if (n.sourceState == JobState.RUNNING || n.summaryState == JobState.RUNNING) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 4.dp))
         }
     }

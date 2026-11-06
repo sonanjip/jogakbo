@@ -154,7 +154,7 @@ class NotesTest {
         val search = NoteSearch(dao) { q -> embedder.modelId to embedder.embedQuery(q) }
         assertEquals(a, search.search("cabbage chili garlic").first().note.id)
         assertEquals(b, search.search("chain").first().note.id) // a word
-        val api = NotesApi(dao, search, "0.1.0")
+        val api = NotesApi(dao, search, "0.1.0", tags = db.tagDao())
         val tools = JSONArray(api.tools())
         assertEquals(setOf("search_notes", "read_note"), (0 until tools.length()).map { tools.getJSONObject(it).getString("name") }.toSet())
         val found = JSONArray(api.runTool("search_notes", """{"query":"flat tire","kinds":"memo"}"""))
@@ -162,6 +162,15 @@ class NotesTest {
         val read = JSONObject(api.runTool("read_note", """{"note_id":$a}"""))
         assertTrue(read.getString("text").startsWith("# Kimchi recipe"))
         assertEquals("No matching notes.", api.runTool("search_notes", """{"query":"kimchi","kinds":"youtube"}"""))
+        // tags: shown on results and usable as a filter
+        val tags = io.github.taehunkim.jogakbo.tags.TagRepository(db.tagDao())
+        val car = (tags.add("자동차") as io.github.taehunkim.jogakbo.tags.TagRepository.Result.Ok).id
+        tags.addToNote(a, car)
+        val byTag = JSONArray(api.runTool("search_notes", """{"tags":"#자동차"}"""))
+        assertEquals(1, byTag.length()); assertEquals(a, byTag.getJSONObject(0).getLong("note_id"))
+        assertEquals("자동차", byTag.getJSONObject(0).getJSONArray("tags").getString(0))
+        assertEquals("자동차", JSONObject(api.runTool("read_note", """{"note_id":$a}""")).getJSONArray("tags").getString(0))
+        assertEquals("No matching notes.", api.runTool("search_notes", """{"query":"flat tire","tags":"요리"}"""))
         val start = JSONObject(api.changesSince(0, 10)).getLong("cursor")
         Thread.sleep(5)
         repo.updateMemo(a, "Kimchi recipe", "More garlic.")
@@ -203,6 +212,79 @@ class NotesTest {
             val p = b2.import(ByteArrayInputStream("# Groceries\n\n- [ ] milk".toByteArray()), "list.md")
             assertEquals(1, p.added)
             assertNotNull(db2.noteDao().all().firstOrNull { it.title == "Groceries" && it.body == "- [ ] milk" })
+        } finally { db2.close() }
+    }
+
+    @Test fun tagsAreDecidedKeptWhenTheUserChoseAndCheckedAgainAfterEdits() = runBlocking {
+        val tagDao = db.tagDao()
+        var changed = 0
+        val tags = io.github.taehunkim.jogakbo.tags.TagRepository(tagDao, onTagsChanged = { changed++ })
+        tags.seed(listOf("여행", "요리", "돈"))
+        assertTrue(tags.add(" #요리 ") is io.github.taehunkim.jogakbo.tags.TagRepository.Result.Duplicate)
+        val decider = FakeDecider()
+        var available = true
+        val tagger = io.github.taehunkim.jogakbo.tags.NoteTagger(dao, tagDao, { if (available) decider else null })
+        val trip = repo.createMemo("제주 여행", "3박 4일 일정")
+        val misc = repo.createMemo("메모", "maybe something")
+        assertEquals(2, tagger.tagPending().tagged)
+        assertEquals("one call per note", 2, decider.calls)
+        fun names(id: Long, st: io.github.taehunkim.jogakbo.data.db.TagState) = runBlocking { tagDao.rows(id) }.filter { it.state == st }.map { r -> runBlocking { tagDao.tag(r.tagId)!!.name } }.toSet()
+        assertEquals(setOf("여행"), names(trip, io.github.taehunkim.jogakbo.data.db.TagState.AUTO_YES))
+        assertEquals(setOf("여행", "요리", "돈"), names(misc, io.github.taehunkim.jogakbo.data.db.TagState.SUGGESTED))
+        assertEquals("nothing left", 0, tagger.tagPending().tagged)
+
+        // the user's choices stay through edits and other models
+        val food = tagDao.tagByName("요리")!!.id
+        val travel = tagDao.tagByName("여행")!!.id
+        tags.addToNote(trip, food); tags.removeFromNote(trip, travel)
+        repo.updateMemo(trip, "제주 여행", "3박 4일 일정, 흑돼지 맛집")
+        assertEquals(1, tagger.tagPending().tagged)
+        assertEquals(setOf("요리"), names(trip, io.github.taehunkim.jogakbo.data.db.TagState.MANUAL))
+        assertEquals(setOf("여행"), names(trip, io.github.taehunkim.jogakbo.data.db.TagState.REJECTED))
+        assertEquals(setOf("돈"), names(trip, io.github.taehunkim.jogakbo.data.db.TagState.AUTO_NO))
+
+        // a new tag is checked on every note; editing a tag checks it again; a new model answers again
+        tags.add("일정")
+        assertEquals(2, tagger.tagPending().tagged)
+        assertTrue("일정" in names(trip, io.github.taehunkim.jogakbo.data.db.TagState.AUTO_YES))
+        tags.update(tagDao.tagByName("일정")!!.id, "맛집", "")
+        tagger.tagPending()
+        assertTrue("맛집" in names(trip, io.github.taehunkim.jogakbo.data.db.TagState.AUTO_YES))
+        val other = io.github.taehunkim.jogakbo.tags.NoteTagger(dao, tagDao, { FakeDecider("other-nli") })
+        assertEquals(2, other.tagPending().tagged)
+        // without a model nothing happens
+        available = false
+        tags.retagAll()
+        assertTrue(tagger.tagPending().noModel)
+        assertTrue(changed >= 4)
+    }
+
+    @Test fun tagsTravelWithTheBackup() = runBlocking {
+        val tagDao = db.tagDao()
+        val tags = io.github.taehunkim.jogakbo.tags.TagRepository(tagDao)
+        tags.seed(listOf("여행", "요리"))
+        tags.add("돈", "지출, 영수증")
+        val trip = repo.createMemo("제주 여행", "일정")
+        tags.addToNote(trip, tagDao.tagByName("여행")!!.id)
+        tags.removeFromNote(trip, tagDao.tagByName("요리")!!.id)
+        val zip = ByteArrayOutputStream()
+        Backup(ctx, dao, { repo.audioDir }, tags = tagDao).export(zip, includeAudio = false, includeSummaries = true)
+        val db2 = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java).build()
+        try {
+            val t2 = db2.tagDao()
+            io.github.taehunkim.jogakbo.tags.TagRepository(t2).add("요리", "레시피") // already here: keeps its own description
+            Backup(ctx, db2.noteDao(), { repo.audioDir }, tags = t2).import(ByteArrayInputStream(zip.toByteArray()), "b.zip")
+            assertEquals(setOf("여행", "요리", "돈"), t2.tags().map { it.name }.toSet())
+            assertEquals("지출, 영수증", t2.tagByName("돈")!!.description)
+            assertEquals("레시피", t2.tagByName("요리")!!.description)
+            val n = db2.noteDao().all().single()
+            val rows = t2.ofNotes(listOf(n.id)).associate { it.name to it.state }
+            assertEquals(io.github.taehunkim.jogakbo.data.db.TagState.MANUAL, rows["여행"])
+            assertEquals(io.github.taehunkim.jogakbo.data.db.TagState.REJECTED, rows["요리"])
+            // a Markdown file from another app with tags creates them
+            Backup(ctx, db2.noteDao(), { repo.audioDir }, tags = t2).import(ByteArrayInputStream("---\ntitle: x\ntags:\n  - 독서\n  - \"#여행\"\n---\nbody".toByteArray()), "x.md")
+            val x = db2.noteDao().all().first { it.title == "x" }
+            assertEquals(setOf("독서", "여행"), t2.ofNotes(listOf(x.id)).map { it.name }.toSet())
         } finally { db2.close() }
     }
 

@@ -78,7 +78,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Tabs: Notes (summaries, embedding), Data (export, import), Connections (OndolSaem, other apps), App (language, about). */
+/** Tabs: Notes (summaries, embedding), Tags, Data (export, import), Connections (OndolSaem, other apps), App (language, about). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit, initialTab: Int = 0) {
@@ -92,7 +92,7 @@ fun SettingsScreen(onBack: () -> Unit, initialTab: Int = 0) {
         },
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
-            val tabs = listOf(R.string.settings_tab_notes, R.string.settings_tab_data, R.string.settings_tab_connections, R.string.settings_tab_app)
+            val tabs = listOf(R.string.settings_tab_notes, R.string.settings_tab_tags, R.string.settings_tab_data, R.string.settings_tab_connections, R.string.settings_tab_app)
             PrimaryTabRow(selectedTabIndex = tab) {
                 tabs.forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(stringResource(t)) }, modifier = Modifier.testTag("settings_tab_$i")) }
             }
@@ -100,8 +100,9 @@ fun SettingsScreen(onBack: () -> Unit, initialTab: Int = 0) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when (tab) {
                         0 -> NotesTab()
-                        1 -> DataTab()
-                        2 -> ConnectionsTab()
+                        TAB_TAGS -> TagsTab()
+                        2 -> DataTab()
+                        TAB_CONNECTIONS -> ConnectionsTab()
                         else -> AppTab()
                     }
                 }
@@ -109,6 +110,9 @@ fun SettingsScreen(onBack: () -> Unit, initialTab: Int = 0) {
         }
     }
 }
+
+const val TAB_TAGS = 1
+const val TAB_CONNECTIONS = 3
 
 @Composable
 internal fun Section(title: Int, desc: Int?) {

@@ -49,3 +49,15 @@ class FakeSpeech(override val canTranscribe: Boolean = true) : SpeechTools {
         while (t + 1500 <= len) { onCue(Cue(t, t + 1500, "line at ${t / 1000}")); t += 2000 }
     }
 }
+
+/** Decision model: yes when the text contains the topic word of the statement, "maybe" when it contains "maybe". */
+class FakeDecider(override val modelId: String = "fake-nli") : io.github.taehunkim.jogakbo.ml.Decider {
+    var calls = 0
+    override suspend fun entail(premise: String, hypotheses: List<String>): FloatArray {
+        calls++
+        return FloatArray(hypotheses.size) { i ->
+            val topic = hypotheses[i].substringAfter("이 글은 ").substringBefore("에 관한").substringAfter("This text is about ").removeSuffix(".").substringBefore("(").substringBefore(" (").trim()
+            when { premise.contains(topic, ignoreCase = true) -> 0.95f; premise.contains("maybe") -> 0.5f; else -> 0.05f }
+        }
+    }
+}

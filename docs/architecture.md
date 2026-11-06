@@ -4,16 +4,21 @@ Jogakbo keeps notes in a Room database, makes their originals and summaries in b
 search, and serves them to other apps over a bound service. All AI runs in the companion app OndolSaem
 (`ml/ModelHost`, OndolSaem client SDK); Jogakbo itself holds no models.
 
-## Data (`data/db`, `AppDatabase.VERSION = 1`)
+## Data (`data/db`, `AppDatabase.VERSION = 2`)
 
 | Table | What it holds |
 |---|---|
-| `notes` | `uuid` (stable across export/import), `kind` (MEMO, LINK, YOUTUBE, AUDIO), `title`, `body` (original, Markdown), `summary` (Markdown), `summaryEdited`, `summaryPrompt`, `summaryState`/`summaryError`/`summaryModel`, `sourceUrl`, `sourceMeta` (JSON: site, channel, description, fetch time…), `sourceState`/`sourceError`, `audioFile` (under `files/audio`), `durationMs`, `createdAt`, `updatedAt` (text changes), `embeddedAt`/`embedKey` |
+| `notes` | `uuid` (stable across export/import), `kind` (MEMO, LINK, YOUTUBE, AUDIO), `title`, `body` (original, Markdown), `summary` (Markdown), `summaryEdited`, `summaryPrompt`, `summaryState`/`summaryError`/`summaryModel`, `sourceUrl`, `sourceMeta` (JSON: site, channel, description, fetch time…), `sourceState`/`sourceError`, `audioFile` (under `files/audio`), `durationMs`, `createdAt`, `updatedAt` (text changes), `embeddedAt`/`embedKey`, `taggedAt` (schema 2) |
 | `cues` | One line of a transcript or subtitle track (`startMs`, `endMs`, `text`): playback seek and the transcript list |
 | `chunks` | A piece of a note's text with its embedding (int8 `[scale][int8 × dim]`, `ml/Quant`) and the model id |
+| `tags` (2) | The user's tags: `name` (unique, case-insensitive), `description`, `ordinal` |
+| `note_tags` (2) | One answer per note and tag: `state` (AUTO_YES, SUGGESTED, AUTO_NO from the decision model; MANUAL, REJECTED from the user), `score`, `modelId`, `at` |
+
+Migrations: `MIGRATION_1_2` (0.2.0) adds `notes.taggedAt` and the two tag tables (`MigrationTest`).
 
 Settings (`data/prefs/SettingsStore`, DataStore): embedding mode and schedule, the global summary prompt, the summary
-language (ORIGINAL or APP), auto-summary per kind, onboarding, approvals of other apps, and the mirrored model ids.
+language (ORIGINAL or APP), auto-summary per kind, automatic tagging and whether the example tags were added,
+onboarding, approvals of other apps, and the mirrored model ids (language, embedding, decision).
 
 ## Notes and jobs
 
@@ -78,13 +83,31 @@ Playback (`ui/notes/AudioPlayer`, `MediaPlayer`) seeks when a cue is tapped; You
   summary or original (SQL LIKE on the longest word, then checked in memory). Score = 1.2 × word score + semantic
   score (scaled 0.5–1 inside the band) + 0.15 when both match.
 
+## Tags (`tags/`)
+
+- `TagRepository`: the user's tags (add, rename or describe, delete, order) and their choices on notes
+  (`addToNote` = MANUAL, `removeFromNote` = REJECTED). Renaming or describing a tag differently forgets the model's
+  answers for it; *Tag all notes again* forgets all of them. The example tags (`R.array.tag_examples`, in the app
+  language) are added once at first start.
+- `NoteTagger`: runs in `EmbedWorker` after the embedding pass (so it follows the embedding time) when automatic
+  tagging is on. It asks OndolSaem's decision model (`ModelHost.decider()`, category `decision`, SDK API 3) one
+  question per tag in one call per note: premise = title + summary (or the start of the original, 1,500 characters,
+  Markdown marks removed), statement = `Decisions.hypothesis(name, description)` ("이 글은 여행에 관한
+  내용이다."). P ≥ 0.70 is AUTO_YES (shown), ≥ 0.40 SUGGESTED (offered on the note), else AUTO_NO. A note is asked
+  again when it changed after `taggedAt`, or lacks an answer of the current decision model for some tag; MANUAL and
+  REJECTED rows are never touched. Without a decision model nothing happens (and the embedding pass does not retry
+  for it). On the emulator with the real model: 5 Korean notes × 7 example tags all right, no wrong tag, about 0.6 s
+  per note (`RealModelTest`).
+
 ## Export and import (`io/`)
 
 `NoteMarkdown` writes one note as Markdown: front matter (`jogakbo: 1`, `uuid`, `kind`, `title`, `created`,
-`updated`, `source_url`, `summary_prompt`, `summary_edited`, `duration_ms`, `source_meta`, `audio`, `cues`; strings
-JSON-quoted), the title as `#`, then `<!-- jogakbo:summary -->` + `## Summary` and `<!-- jogakbo:original -->` +
+`updated`, `source_url`, `summary_prompt`, `summary_edited`, `duration_ms`, `source_meta`, `audio`, `cues`, `tags`,
+`tags_rejected`; strings JSON-quoted, tag lists as `["a", "b"]`), the title as `#`, then `<!-- jogakbo:summary -->` + `## Summary` and `<!-- jogakbo:original -->` +
 `## Original`, so both read back exactly. `Backup` writes `notes/<yyyyMMdd>-<slug>-<uuid8>.md`, `audio/<uuid>.<ext>`
-and `audio/<uuid>.cues.json`. Import takes a ZIP or one `.md`/`.txt`: a known uuid is replaced only by a newer
+and `audio/<uuid>.cues.json`, plus `tags.json` (names, descriptions, order). Import adds the tags it does not know
+(by name; existing tags keep their description), and a note's tags become the user's own (MANUAL / REJECTED); tags in
+other apps' front matter (`tags: [a, b]`, `tags: a, b` or a block list) are read too. Import takes a ZIP or one `.md`/`.txt`: a known uuid is replaced only by a newer
 `updated`; files without Jogakbo front matter become memos (title from front matter, the first `#` heading or the
 file name). Imported notes are embedded by the scheduler.
 

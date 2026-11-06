@@ -17,16 +17,17 @@ user and fails with `NOT_APPROVED` (`JogakboUnavailableException.Reason.NOT_APPR
 | `hello(clientJson)` | `{"api","minClientApi","appVersion"}` (`CLIENT_TOO_OLD` below the minimum) |
 | `tools()` | `[{"name","description","parameters","confirm":false}]`: `search_notes`, `read_note` |
 | `runTool(name, argsJson)` | The text the model sees |
-| `notes(ids)` | `[{"note_id","title","kind","created","updated","url"?}]` |
+| `notes(ids)` | `[{"note_id","title","kind","created","updated","url"?,"tags"?}]` |
 | `readNote(id, maxChars)` | Markdown: `# title`, `Source:`, `## Summary`, `## Original` |
 | `changesSince(cursor, limit)` | `{"ids","cursor"}`; cursor 0 = from now on (an `updatedAt` time) |
 
 Tools:
 
-- `search_notes(query?, kinds?, date_from?, date_to?, limit?)`: kinds `memo, link, youtube, audio`; dates
-  `YYYY-MM-DD` on the creation date; no query lists the newest notes. Returns `note_id`, `title`, `kind`, `created`,
-  `updated`, `url`, `snippet`, or `No matching notes.`.
-- `read_note(note_id, offset?, max_chars?)`: a slice (default 3000, up to 6000 characters) with `next_offset` when
+- `search_notes(query?, kinds?, tags?, date_from?, date_to?, limit?)`: kinds `memo, link, youtube, audio`; tags
+  comma-separated names (any of them; since app 0.2.0); dates `YYYY-MM-DD` on the creation date; no query lists the
+  newest notes. Returns `note_id`, `title`, `kind`, `created`, `updated`, `url`, `tags` (shown tags), `snippet`, or
+  `No matching notes.`.
+- `read_note(note_id, offset?, max_chars?)`: the note's `tags` and a slice (default 3000, up to 6000 characters) with `next_offset` when
   more is left.
 
 `Jogakbo.ACTION_NOTES_CHANGED` is broadcast explicitly to apps with a receiver (the SDK declares

@@ -19,7 +19,10 @@ import java.util.TimeZone
  * What other apps may do with the notes (the INotes service): search them and read them, and learn which changed.
  * Plain logic so tests can call it without Binder.
  */
-class NotesApi(private val dao: NoteDao, private val search: NoteSearch, private val appVersion: String, private val zone: TimeZone = TimeZone.getDefault()) {
+class NotesApi(
+    private val dao: NoteDao, private val search: NoteSearch, private val appVersion: String, private val zone: TimeZone = TimeZone.getDefault(),
+    private val tags: io.github.taehunkim.jogakbo.data.db.TagDao? = null,
+) {
     fun hello(clientJson: String): String {
         val api = runCatching { JSONObject(clientJson).optInt("api") }.getOrDefault(0)
         if (api < MIN_CLIENT_API) throw JogakboErrors.encode(Jogakbo.Errors.CLIENT_TOO_OLD, "client API $api, need $MIN_CLIENT_API")
@@ -47,14 +50,20 @@ class NotesApi(private val dao: NoteDao, private val search: NoteSearch, private
         val to = args.optString("date_to").takeIf { it.isNotBlank() }?.let { day(it)?.plus(DAY_MS) ?: return "Error: date_to must be YYYY-MM-DD." }
         val limit = args.optInt("limit", 5).coerceIn(1, 10)
         val filter = NoteFilter(kinds, from, to)
+        // tag filter: notes that carry any of the named tags
+        val wanted = args.optString("tags").split(',').map { it.trim().removePrefix("#").lowercase() }.filter { it.isNotEmpty() }.toSet()
+        val tagged: Set<Long>? = if (wanted.isEmpty()) null else
+            tags?.ofNotes(dao.all().map { it.id })?.filter { it.state.applied && it.name.lowercase() in wanted }?.map { it.noteId }?.toSet().orEmpty()
         val hits = if (query.isEmpty()) {
             // no query: newest notes that fit the filters
             dao.all().asReversed().asSequence().filter { n -> (kinds.isEmpty() || n.kind in kinds) && (from == null || n.createdAt >= from) && (to == null || n.createdAt < to) }
+                .filter { tagged == null || it.id in tagged }
                 .take(limit).map { it to NoteSearch.snippet(it.summary ?: it.body) }.toList()
-        } else search.search(query, filter, limit).map { it.note to it.snippet }
+        } else search.search(query, filter, if (tagged == null) limit else MAX_CHANGES).filter { tagged == null || it.note.id in tagged }.take(limit).map { it.note to it.snippet }
         if (hits.isEmpty()) return "No matching notes."
+        val names = tagNames(hits.map { it.first.id })
         return JSONArray().apply {
-            hits.forEach { (n, snippet) -> put(info(n).put("snippet", snippet)) }
+            hits.forEach { (n, snippet) -> put(info(n, names[n.id]).put("snippet", snippet)) }
         }.toString()
     }
 
@@ -66,13 +75,14 @@ class NotesApi(private val dao: NoteDao, private val search: NoteSearch, private
         val n = dao.get(id) ?: return "Error: no note with note_id $id."
         val text = markdown(n)
         val slice = text.drop(offset).take(max)
-        val o = info(n).put("text", slice)
+        val o = info(n, tagNames(listOf(n.id))[n.id]).put("text", slice)
         if (offset + slice.length < text.length) o.put("next_offset", offset + slice.length)
         return o.toString()
     }
 
     fun notes(ids: LongArray): String = runBlocking {
-        JSONArray().apply { dao.getAll(ids.toList()).sortedBy { ids.indexOf(it.id) }.forEach { put(info(it)) } }.toString()
+        val names = tagNames(ids.toList())
+        JSONArray().apply { dao.getAll(ids.toList()).sortedBy { ids.indexOf(it.id) }.forEach { put(info(it, names[it.id])) } }.toString()
     }
 
     fun readNote(id: Long, maxChars: Int): String = runBlocking {
@@ -91,10 +101,15 @@ class NotesApi(private val dao: NoteDao, private val search: NoteSearch, private
         SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply { timeZone = zone; isLenient = false }.parse(s)!!.time
     }.getOrNull()
 
-    private fun info(n: NoteEntity) = JSONObject()
+    /** The tags shown on each note (the decision model's and the user's). */
+    private suspend fun tagNames(ids: List<Long>): Map<Long, List<String>> =
+        if (ids.isEmpty()) emptyMap() else tags?.ofNotes(ids)?.filter { it.state.applied }?.groupBy({ it.noteId }, { it.name }).orEmpty()
+
+    private fun info(n: NoteEntity, tagNames: List<String>? = null) = JSONObject()
         .put("note_id", n.id).put("title", n.title).put("kind", n.kind.wire)
         .put("created", fmt(n.createdAt)).put("updated", fmt(n.updatedAt))
         .apply { n.sourceUrl?.let { put("url", it) } }
+        .apply { if (!tagNames.isNullOrEmpty()) put("tags", JSONArray(tagNames)) }
 
     companion object {
         const val MIN_CLIENT_API = Jogakbo.Api.V1
@@ -106,11 +121,12 @@ class NotesApi(private val dao: NoteDao, private val search: NoteSearch, private
 
         const val SEARCH_DESCRIPTION =
             "Search the user's notes in Jogakbo (조각보): memos they wrote, saved web pages and YouTube videos, and recordings, " +
-                "each with an AI summary. Finds notes by meaning and by words. Returns note_id, title, kind, dates, url and a snippet; " +
+                "each with an AI summary. Finds notes by meaning and by words, optionally only notes with given tags. Returns note_id, title, kind, dates, url, tags and a snippet; " +
                 "use read_note for the full text."
         const val SEARCH_PARAMETERS = """{"type":"object","properties":{
             "query":{"type":"string","description":"What to look for: words or a description. Leave out to list the newest notes."},
             "kinds":{"type":"string","description":"Optional comma separated filter: memo, link, youtube, audio."},
+            "tags":{"type":"string","description":"Optional comma separated tag names; only notes with any of them (for example 여행, 요리)."},
             "date_from":{"type":"string","description":"Optional: notes created on or after this date, YYYY-MM-DD."},
             "date_to":{"type":"string","description":"Optional: notes created on or before this date, YYYY-MM-DD."},
             "limit":{"type":"integer","description":"Number of results, 1 to 10 (default 5)."}}}"""

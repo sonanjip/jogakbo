@@ -49,7 +49,7 @@ fun AppScaffold(target: Target?, onTargetHandled: () -> Unit) {
         when (target) {
             is Target.Note -> nav.navigate("note/${target.id}")
             is Target.Share -> { nav.popBackStack(ROUTE_NOTES, false); shared = target.shared }
-            Target.Approvals -> nav.navigate("settings?tab=2")
+            Target.Approvals -> nav.navigate("settings?tab=${io.github.taehunkim.jogakbo.ui.settings.TAB_CONNECTIONS}")
             Target.Recording -> nav.navigate("record")
             null -> return@LaunchedEffect
         }

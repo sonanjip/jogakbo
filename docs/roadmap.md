@@ -1,5 +1,10 @@
 # Roadmap
 
+## Done in 0.2.0
+
+Tags you define (with examples), checked on every note by OndolSaem's decision model at the embedding time;
+suggestions for unsure ones; tag filters; tags in export/import and in the notes SDK.
+
 ## Done in 0.1.0
 
 Memos with a Markdown toolbar, web and YouTube notes, recordings with a live transcript and imported audio,
@@ -15,7 +20,9 @@ with a chosen embedding time, ZIP/Markdown export and import, and the notes SDK 
 3. **Speaker turns** in recordings (diarization) and a live transcript that refines lines after the fact.
 4. **More sources**: PDFs and images shared to the app (OCR through OndolSaem), podcasts (audio URLs), web pages
    that need JavaScript.
-5. **Organizing**: tags or folders, pinning, merging notes; related notes by meaning under each note.
+5. **Organizing**: folders, pinning, merging notes; related notes by meaning under each note (tags with automatic
+   tagging are done in 0.2.0). Tags: let Malbotdari tag notes from the chat; tag images and audio once OndolSaem has a
+   decision model that reads them (d1-omni, see OndolSaem's roadmap).
 6. **YouTube through the official API**: an optional YouTube Data API v3 key (entered by the user in Settings) for
    the title, channel, description, length and caption list (`videos.list`, `captions.list`), so these no longer
    depend on the watch page. Caveat: downloading caption text (`captions.download`) needs OAuth and is allowed only

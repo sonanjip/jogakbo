@@ -50,7 +50,7 @@ fun OndolSaemCard() {
             }
             Text(status, color = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error, modifier = Modifier.testTag("conn_ondolsaem_status"))
             if (connected) {
-                for ((cat, label) in listOf(OndolSaem.Categories.LLM to R.string.model_llm, OndolSaem.Categories.ASR to R.string.model_asr, OndolSaem.Categories.EMBEDDING to R.string.model_embedding)) {
+                for ((cat, label) in listOf(OndolSaem.Categories.LLM to R.string.model_llm, OndolSaem.Categories.ASR to R.string.model_asr, OndolSaem.Categories.EMBEDDING to R.string.model_embedding, OndolSaem.Categories.DECISION to R.string.model_decision)) {
                     val m = s.model(cat)
                     val ready = s.ready(cat)
                     Text(

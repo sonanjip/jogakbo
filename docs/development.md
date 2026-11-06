@@ -2,7 +2,7 @@
 
 - `source scripts/env.sh` sets JAVA_HOME (Android Studio's JBR), ANDROID_HOME, PATH, `APP_ID`.
 - `local.properties`: `sdk.dir=…` and `ondolsaem.dir=../ondolsaem` to build the OndolSaem SDK from the sibling
-  checkout (composite build); without it the SDK comes from JitPack (`com.github.TaeHunKim:ondolsaem:sdk-v0.3.0`).
+  checkout (composite build); without it the SDK comes from JitPack (`com.github.TaeHunKim:ondolsaem:sdk-v0.4.0`, API 3 for the decision model).
 - Build and check: `./gradlew assembleDebug testDebugUnitTest lintDebug`.
 - Instrumented tests: `./gradlew installDebug installDebugAndroidTest`, then
   `adb shell am instrument -w io.github.taehunkim.jogakbo.test/androidx.test.runner.AndroidJUnitRunner`
@@ -10,7 +10,9 @@
   speech and network (`androidTest/.../Fakes.kt`), plus the real UI (`NavigationTest`). `RealModelTest` feeds a
   recording from a file to OndolSaem's real speech model and checks that lines arrive while it records; it is skipped
   without the model or the fixture: `adb push long_talk.wav /data/local/tmp/` (Nunsori's `make-audio-fixtures.sh`), then
-  `adb shell run-as io.github.taehunkim.jogakbo cp /data/local/tmp/long_talk.wav cache/`.
+  `adb shell run-as io.github.taehunkim.jogakbo cp /data/local/tmp/long_talk.wav cache/`. Its
+  `koreanNotesGetTheRightTags` runs OndolSaem's real decision model on Korean notes with the Korean example tags (logs
+  every score; skipped without the model). `MigrationTest` checks schema 1 → 2 against `app/schemas`.
 - The emulator's host microphone (`adb emu avd hostmicon`) may only deliver silence (macOS microphone access); use
   `RealModelTest` or an audio file for transcription checks.
 - Scripts: `scripts/run.sh` (install and start), `scripts/screenshot.sh`, `scripts/logcat.sh`, `scripts/emu-start.sh`.

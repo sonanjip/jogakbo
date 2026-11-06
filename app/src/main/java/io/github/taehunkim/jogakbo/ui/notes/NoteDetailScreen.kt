@@ -104,6 +104,7 @@ fun NoteDetailScreen(noteId: Long, onBack: () -> Unit, onEdit: () -> Unit, onEdi
         if (n == null) return@Scaffold
         Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Header(n)
+            NoteTags(noteId)
             SourceState(n) { scope.launch { c.notes.retrySource(noteId) } }
             SummaryCard(n, onSummarize = { summarizeDialog = true }, onEdit = onEditSummary)
             val audio = remember(n.audioFile) { c.notes.audioFile(n) }

@@ -195,4 +195,36 @@
     <string name="video_no_subtitles">이 영상에는 자막이 없어 설명만 저장했습니다.</string>
     <string name="video_transcript">자막</string>
     <string name="audio_cannot_read">오디오 파일을 읽을 수 없습니다: %1$s</string>
+    <string-array name="tag_examples">
+        <item>업무</item>
+        <item>공부</item>
+        <item>아이디어</item>
+        <item>여행</item>
+        <item>건강</item>
+        <item>돈</item>
+        <item>요리</item>
+    </string-array>
+    <string name="settings_tab_tags">태그</string>
+    <string name="settings_tags">태그</string>
+    <string name="settings_tags_desc">노트에 붙일 나만의 태그입니다. 자동 태그를 켜면 온돌샘의 판단 모델이 노트마다 태그별로 맞는지(예·아니오·불확실) 확인하며, 시점은 노트 탭의 임베딩 시점을 따릅니다. 불확실한 태그는 노트에서 제안으로 보여 줍니다. 직접 붙이거나 뗀 태그는 바꾸지 않습니다.</string>
+    <string name="settings_auto_tag">노트에 태그 자동으로 달기</string>
+    <string name="settings_auto_tag_desc">온돌샘에 판단 모델이 있어야 합니다. 설명을 달면 판단에 도움이 됩니다. 예: “돈: 지출, 영수증, 저축”.</string>
+    <string name="tags_no_model">온돌샘에 판단 모델을 아직 받지 않아 노트에 태그를 달지 않습니다.</string>
+    <string name="tags_empty">아직 태그가 없습니다.</string>
+    <string name="tags">태그</string>
+    <string name="tag_add">태그 추가</string>
+    <string name="tag_edit">태그 편집</string>
+    <string name="tag_delete">태그 삭제</string>
+    <string name="tag_up">위로</string>
+    <string name="tag_down">아래로</string>
+    <string name="tag_retag_all">모든 노트 다시 태그 달기</string>
+    <string name="tag_name">이름</string>
+    <string name="tag_description">어떤 노트가 해당하는지 (선택)</string>
+    <string name="tag_description_hint">예: 지출, 영수증, 저축</string>
+    <string name="tag_error_blank">이름을 입력하세요.</string>
+    <string name="tag_error_duplicate">이미 있는 태그입니다.</string>
+    <string name="tag_remove">태그 떼기</string>
+    <string name="tag_accept">이 태그 달기</string>
+    <string name="tag_decline">이 태그 아님</string>
+    <string name="model_decision">태그 (판단)</string>
 </resources>

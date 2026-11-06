@@ -54,8 +54,10 @@ class NavigationTest {
         rule.onNodeWithTag("open_settings").performClick()
         rule.onNodeWithTag("system_prompt").assertIsDisplayed()
         rule.onNodeWithTag("settings_tab_1").performClick()
-        rule.onNodeWithTag("export").assertIsDisplayed()
+        rule.onNodeWithTag("tag_add").assertIsDisplayed()
         rule.onNodeWithTag("settings_tab_2").performClick()
+        rule.onNodeWithTag("export").assertIsDisplayed()
+        rule.onNodeWithTag("settings_tab_3").performClick()
         rule.onNodeWithTag("conn_ondolsaem").assertIsDisplayed()
     }
 

@@ -52,6 +52,8 @@ data class NoteEntity(
     /** When the chunks were last made, and with what ([embedKey] = model + chunking version). */
     val embeddedAt: Long? = null,
     val embedKey: String? = null,
+    /** When the decision model last checked the note against the tags (schema 2). */
+    val taggedAt: Long? = null,
 )
 
 /** One line of a transcript or subtitle track, for playback and seeking. */
@@ -90,3 +92,52 @@ data class ChunkEntity(
 
 /** What search needs of a chunk. */
 data class ChunkVector(val id: Long, val noteId: Long, val embedding: ByteArray)
+
+/** A tag the user defined (or one of the examples). [description] says what belongs to it and helps the decision model. */
+@Entity(tableName = "tags", indices = [Index(value = ["name"], unique = true)])
+data class TagEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(collate = ColumnInfo.NOCASE) val name: String,
+    val description: String = "",
+    val ordinal: Int = 0,
+    val createdAt: Long,
+)
+
+/** How a tag came to a note (or did not). */
+enum class TagState {
+    /** The decision model said yes: the tag is shown. */
+    AUTO_YES,
+    /** The decision model was unsure: offered to the user, not applied. */
+    SUGGESTED,
+    /** The decision model said no. */
+    AUTO_NO,
+    /** Added by the user; the decision model never changes it. */
+    MANUAL,
+    /** Removed or declined by the user; the decision model never adds it again. */
+    REJECTED;
+
+    val applied: Boolean get() = this == AUTO_YES || this == MANUAL
+    val byUser: Boolean get() = this == MANUAL || this == REJECTED
+}
+
+/** A note's answer for one tag; [modelId] is the decision model that answered (null for the user's own choice). */
+@Entity(
+    tableName = "note_tags",
+    primaryKeys = ["noteId", "tagId"],
+    foreignKeys = [
+        ForeignKey(entity = NoteEntity::class, parentColumns = ["id"], childColumns = ["noteId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = TagEntity::class, parentColumns = ["id"], childColumns = ["tagId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("tagId")],
+)
+data class NoteTagEntity(
+    val noteId: Long,
+    val tagId: Long,
+    val state: TagState,
+    val score: Float? = null,
+    val modelId: String? = null,
+    val at: Long,
+)
+
+/** A note's tag with its name, for the UI and the SDK. */
+data class NoteTagName(val noteId: Long, val tagId: Long, val name: String, val state: TagState, val score: Float?)

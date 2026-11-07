@@ -18,7 +18,10 @@ import io.github.taehunkim.jogakbo.fetch.FetchException
 import io.github.taehunkim.jogakbo.fetch.HttpClient
 import io.github.taehunkim.jogakbo.fetch.YouTubeFetcher
 import io.github.taehunkim.jogakbo.ml.ModelHost
+import io.github.taehunkim.jogakbo.docs.DocumentExtractor
 import io.github.taehunkim.jogakbo.notes.Bodies
+import io.github.taehunkim.jogakbo.notes.Documents
+import io.github.taehunkim.ondolsaem.sdk.HostUnavailableException
 import io.github.taehunkim.jogakbo.notes.NoteJobs
 import io.github.taehunkim.jogakbo.notes.Timing
 import io.github.taehunkim.jogakbo.record.AacEncoder
@@ -40,6 +43,7 @@ class SourceJob(
     private val settings: SettingsStore,
     private val jobs: NoteJobs,
     private val audioDir: () -> File,
+    private val docDir: () -> File = { File(context.filesDir, "docs") },
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /** Result of one run: done (or failed for good), or try again later (no network, OndolSaem busy). */
@@ -53,6 +57,7 @@ class SourceJob(
                 NoteKind.LINK -> link(note)
                 NoteKind.YOUTUBE -> video(note)
                 NoteKind.AUDIO -> audio(note, progress)
+                NoteKind.DOCUMENT -> document(note, progress)
                 NoteKind.MEMO -> dao.setSourceState(noteId, JobState.NONE)
             }
             afterSource(noteId)
@@ -126,6 +131,27 @@ class SourceJob(
             fresh.copy(
                 title = v.title.take(200), body = body, sourceMeta = m.toString(), durationMs = v.lengthSec?.times(1000),
                 sourceState = JobState.DONE, sourceError = null, updatedAt = now,
+            ),
+        )
+    }
+
+    /** The text of an attached document (the copy under files/docs): its pages, slides or sheets as Markdown sections. */
+    private suspend fun document(n: NoteEntity, progress: (Int, Int) -> Unit) {
+        val file = Documents.fileName(n)?.let { File(docDir(), it) }?.takeIf { it.exists() }
+            ?: throw FetchException(context.getString(R.string.doc_file_missing))
+        val extracted = try {
+            DocumentExtractor(context) { models.ocr() }.extract(file, file.extension, progress)
+        } catch (e: HostUnavailableException) {
+            throw RetryLater(e.message ?: "OndolSaem unavailable") // scanned pages need its text recognition
+        }
+        val fresh = dao.get(n.id) ?: return
+        val m = Documents.meta(fresh).put(Documents.KEY_PAGES, extracted.units).put(Documents.KEY_OCR_PAGES, extracted.ocrPages)
+            .put(Documents.KEY_TRUNCATED, extracted.truncated)
+        val body = if (extracted.truncated) extracted.markdown + "\n\n*${context.getString(R.string.doc_truncated)}*" else extracted.markdown
+        dao.update(
+            fresh.copy(
+                title = extracted.title?.take(200) ?: fresh.title, body = body, sourceMeta = m.toString(),
+                sourceState = JobState.DONE, sourceError = null, updatedAt = clock(),
             ),
         )
     }

@@ -33,7 +33,21 @@
     <string name="action_write_summary">Write a summary</string>
     <string name="add">Add</string>
     <string name="add_audio">Audio file</string>
-    <string name="add_link">Web or YouTube link</string>
+    <string name="show_more">Show more</string>
+    <string name="add_document">Document</string>
+    <string name="add_document_title">Add a document</string>
+    <string name="kind_document">Document</string>
+    <string name="job_reading_document">Reading document</string>
+    <string name="state_reading_document">Reading document…</string>
+    <string name="doc_unsupported">This kind of file is not supported (text, Markdown, PDF, Word, PowerPoint, Excel and OpenDocument are).</string>
+    <string name="doc_too_big">The file is too big to read.</string>
+    <string name="doc_no_text">No text was found in the document.</string>
+    <string name="doc_unreadable">The file cannot be read (is it damaged?).</string>
+    <string name="doc_password">The document is password protected.</string>
+    <string name="doc_file_missing">The attached file is gone.</string>
+    <string name="doc_truncated">The document is very long: only the first part is kept as text.</string>
+    <string name="doc_info">%1$s · %2$d pages</string>
+    <string name="doc_info_ocr">%1$s · %2$d pages (%3$d read by text recognition)</string>    <string name="add_link">Web or YouTube link</string>
     <string name="add_link_url">Address (https://…)</string>
     <string name="add_memo">New memo</string>
     <string name="add_recording">Record</string>

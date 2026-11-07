@@ -143,7 +143,11 @@ fun NoteDetailScreen(noteId: Long, onBack: () -> Unit, onEdit: () -> Unit, onEdi
                 }
                 n.body.isNotBlank() -> {
                     if (n.kind != NoteKind.MEMO) Text(stringResource(R.string.note_original), style = MaterialTheme.typography.titleMedium)
-                    Markdown(n.body, Modifier.testTag("note_body"))
+                    // a long document is shown in slices (one huge Markdown column would stall the screen)
+                    var shown by rememberSaveable(n.id) { mutableStateOf(SHOWN_CHARS) }
+                    val text = if (n.body.length <= shown) n.body else n.body.take(shown).let { t -> t.substring(0, t.lastIndexOf("\n\n").takeIf { it > shown / 2 } ?: t.length) }
+                    Markdown(text, Modifier.testTag("note_body"))
+                    if (text.length < n.body.length) TextButton(onClick = { shown += SHOWN_CHARS }, modifier = Modifier.testTag("show_more")) { Text(stringResource(R.string.show_more)) }
                 }
             }
         }
@@ -172,6 +176,12 @@ private fun Header(n: NoteEntity) {
             stringResource(kindLabel(n.kind)), formatDate(ctx, n.createdAt),
             meta.optString("site").ifBlank { null }, meta.optString("channel").ifBlank { null },
             n.durationMs?.let { formatDuration(it) },
+            if (n.kind == NoteKind.DOCUMENT && n.sourceState == JobState.DONE) {
+                val name = meta.optString(io.github.taehunkim.jogakbo.notes.Documents.KEY_NAME)
+                val pages = meta.optInt(io.github.taehunkim.jogakbo.notes.Documents.KEY_PAGES)
+                val ocr = meta.optInt(io.github.taehunkim.jogakbo.notes.Documents.KEY_OCR_PAGES)
+                if (ocr > 0) stringResource(R.string.doc_info_ocr, name, pages, ocr) else if (pages > 1) stringResource(R.string.doc_info, name, pages) else name.ifBlank { null }
+            } else null,
         )
         Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         n.sourceUrl?.let { url ->
@@ -187,7 +197,7 @@ private fun Header(n: NoteEntity) {
 private fun SourceState(n: NoteEntity, onRetry: () -> Unit) {
     when (n.sourceState) {
         JobState.QUEUED, JobState.RUNNING -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(if (n.kind == NoteKind.AUDIO) R.string.state_transcribing else R.string.state_fetching), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(when (n.kind) { NoteKind.AUDIO -> R.string.state_transcribing; NoteKind.DOCUMENT -> R.string.state_reading_document; else -> R.string.state_fetching }), style = MaterialTheme.typography.bodyMedium)
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }
         JobState.FAILED -> WarningCard(stringResource(R.string.source_failed, n.sourceError.orEmpty()), Modifier.testTag("source_failed"), stringResource(R.string.action_retry), onRetry)
@@ -277,3 +287,6 @@ fun videoAt(url: String, ms: Long): String {
     val base = url.replace(Regex("[?&]t=\\d+s?"), "")
     return base + (if ('?' in base) "&" else "?") + "t=${ms / 1000}"
 }
+
+/** How much of the original the detail screen renders at first (and per "Show more"). */
+private const val SHOWN_CHARS = 40_000

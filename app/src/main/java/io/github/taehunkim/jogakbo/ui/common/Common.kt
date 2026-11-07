@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.SmartDisplay
@@ -49,6 +50,7 @@ fun kindIcon(kind: NoteKind): ImageVector = when (kind) {
     NoteKind.LINK -> Icons.Filled.Link
     NoteKind.YOUTUBE -> Icons.Filled.SmartDisplay
     NoteKind.AUDIO -> Icons.Filled.Mic
+    NoteKind.DOCUMENT -> Icons.Filled.Description
 }
 
 fun kindLabel(kind: NoteKind): Int = when (kind) {
@@ -56,6 +58,7 @@ fun kindLabel(kind: NoteKind): Int = when (kind) {
     NoteKind.LINK -> R.string.kind_link
     NoteKind.YOUTUBE -> R.string.kind_youtube
     NoteKind.AUDIO -> R.string.kind_audio
+    NoteKind.DOCUMENT -> R.string.kind_document
 }
 
 fun formatDate(ctx: Context, ms: Long): String =

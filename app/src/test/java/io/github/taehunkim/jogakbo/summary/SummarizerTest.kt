@@ -49,6 +49,33 @@ class SummarizerTest {
         assertTrue(last.first.contains("notes on its parts") && last.second.contains("Focus on X"))
     }
 
+    private val pages = (1..300).joinToString("\n\n") { "## Page $it\n\nPage $it talks about topic $it and has a handful of ordinary sentences. More words follow here." }
+
+    @Test fun sectionsStayWholeInTheParts() {
+        val parts = Tokens.split(pages, 600)
+        assertTrue(parts.size > 5)
+        // every part starts at a page heading and no page is cut in two
+        parts.forEach { assertTrue(it.startsWith("## Page ")) }
+        assertEquals(300, parts.sumOf { p -> Regex("## Page ").findAll(p).count() })
+        val last = Regex("## Page (\\d+)").findAll(parts.first()).last().groupValues[1]
+        assertEquals("Page 1" to "Page $last", Tokens.sectionRange(parts.first()))
+    }
+
+    @Test fun aLongDocumentIsSummarizedAsAPyramidWithPageRanges() = runTest {
+        val m = FakeModel(2048)
+        val out = Summarizer(m).summarize(req(pages).copy(kind = NoteKind.DOCUMENT))
+        assertTrue(out.isNotBlank())
+        m.calls.forEach { (s, u) -> assertTrue("a call of ${Tokens.estimate(s + u)} tokens", Tokens.estimate(s + u) < 2048) }
+        val mapCalls = m.calls.count { it.first.contains("take notes on part") }
+        assertTrue("map calls: $mapCalls", mapCalls >= 8)
+        // the final call reads notes that still say which pages they cover
+        val last = m.calls.last()
+        assertTrue(last.first.contains("notes on its parts"))
+        assertTrue(last.second.contains("## Part 1"))
+        // the first reduce level got "(Page a – Page b)" labels
+        assertTrue(m.calls.any { it.second.contains(Regex("## Part 1 \\(Page 1 – Page \\d+\\)")) })
+    }
+
     @Test fun retriesSmallerWhenTheModelSaysTooLong() = runTest {
         val m = FakeModel(4096, tooLongAbove = 1500)
         val text = (1..120).joinToString("\n\n") { "Sentence number $it is here with words." }

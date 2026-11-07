@@ -75,7 +75,7 @@ class SummaryJob(
 
         /** What the model reads: the original, or for transcripts the plain lines (no times). */
         fun input(note: NoteEntity, cues: List<Cue>): String = when (note.kind) {
-            NoteKind.MEMO, NoteKind.LINK -> note.body
+            NoteKind.MEMO, NoteKind.LINK, NoteKind.DOCUMENT -> note.body
             NoteKind.YOUTUBE -> {
                 val desc = runCatching { JSONObject(note.sourceMeta ?: "{}").optString("description") }.getOrDefault("")
                 listOf(desc.trim(), Bodies.transcriptText(cues)).filter { it.isNotEmpty() }.joinToString("\n\n").ifEmpty { note.body }

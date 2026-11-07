@@ -28,6 +28,7 @@ class NoteWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             when {
                 job == JOB_SUMMARY -> R.string.job_summarizing
                 note.kind == NoteKind.AUDIO -> R.string.job_transcribing
+                note.kind == NoteKind.DOCUMENT -> R.string.job_reading_document
                 else -> R.string.job_fetching
             },
         )

@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
                 target.value = Target.Share(
                     when {
                         stream != null && type.startsWith("audio/") -> Shared.Audio(stream)
+                        stream != null && (type in io.github.taehunkim.jogakbo.notes.Documents.MIME_TYPES && type != "text/plain") -> Shared.Document(stream)
                         NoteRepository.findUrl(text) != null && text.trim().length - NoteRepository.findUrl(text)!!.length < 200 -> Shared.Link(NoteRepository.findUrl(text)!!)
                         text.isNotBlank() -> Shared.Text(text)
                         else -> return

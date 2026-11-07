@@ -40,14 +40,16 @@ class Summarizer(private val model: TextModel) {
         }
         val parts = Tokens.split(req.text, budget(req, PromptBuilder.partSystem(req, 99, 99), shrink))
         val notes = ArrayList<String>()
+        val labels = ArrayList<String>() // where in the document each part came from, kept through the levels
         parts.forEachIndexed { i, part ->
+            labels += Tokens.sectionRange(part)?.let { (a, b) -> if (a == b) " ($a)" else " ($a – $b)" } ?: ""
             progress.update(i, parts.size + 1)
             // the note's instruction is applied to the final summary only
             val partReq = req.copy(notePrompt = null)
             notes += clean(model.generate(PromptBuilder.partSystem(req, i + 1, parts.size), PromptBuilder.user(partReq, part)))
         }
         progress.update(parts.size, parts.size + 1)
-        val joined = notes.mapIndexed { i, n -> "Part ${i + 1}:\n$n" }.joinToString("\n\n")
+        val joined = notes.mapIndexed { i, n -> "## Part ${i + 1}${labels[i]}\n$n" }.joinToString("\n\n")
         return run(req.copy(text = joined), shrink, progress, depth + 1, partNotes = true)
     }
 
@@ -55,7 +57,8 @@ class Summarizer(private val model: TextModel) {
         const val ANSWER_TOKENS = 900
         const val TEMPLATE_TOKENS = 64
         const val MIN_PART_TOKENS = 300
-        const val MAX_DEPTH = 3
+        /** Levels of notes on notes. A 500-page document at a 4K window needs about four; the last level only cuts if it must. */
+        const val MAX_DEPTH = 6
         const val RETRIES = 3
 
         /** Drops a code fence around the whole answer and the model's own lead-ins. */

@@ -84,6 +84,7 @@ sealed interface Shared {
     data class Link(val url: String) : Shared
     data class Text(val text: String) : Shared
     data class Audio(val uri: Uri) : Shared
+    data class Document(val uri: Uri) : Shared
 }
 
 /** The notes, newest first; search by meaning and words; the + menu adds memos, links, recordings and audio files. */
@@ -112,14 +113,17 @@ fun NotesListScreen(
     var menu by remember { mutableStateOf(false) }
     var addLink by remember { mutableStateOf<String?>(null) }
     var addAudio by remember { mutableStateOf<Uri?>(null) }
+    var addDocument by remember { mutableStateOf<Uri?>(null) }
     val autoLink by c.settings.autoSummary(NoteKind.LINK).collectAsStateWithLifecycle(true)
     val autoAudio by c.settings.autoSummary(NoteKind.AUDIO).collectAsStateWithLifecycle(true)
+    val autoDocument by c.settings.autoSummary(NoteKind.DOCUMENT).collectAsStateWithLifecycle(true)
     val defaultNow = c.settings.embedMode.collectAsStateWithLifecycle(io.github.taehunkim.jogakbo.data.prefs.EmbedMode.IMMEDIATE).value == io.github.taehunkim.jogakbo.data.prefs.EmbedMode.IMMEDIATE
 
     LaunchedEffect(shared) {
         when (shared) {
             is Shared.Link -> addLink = shared.url
             is Shared.Audio -> addAudio = shared.uri
+            is Shared.Document -> addDocument = shared.uri
             is Shared.Text -> onNewMemo(shared.text)
             null -> return@LaunchedEffect
         }
@@ -132,6 +136,7 @@ fun NotesListScreen(
     }
 
     val pickAudio = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) addAudio = uri }
+    val pickDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) addDocument = uri }
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) { RecordingService.start(ctx); onRecording() }
     }
@@ -156,6 +161,7 @@ fun NotesListScreen(
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_link)) }, leadingIcon = { Icon(Icons.Filled.Link, null) }, onClick = { menu = false; addLink = "" }, modifier = Modifier.testTag("add_link"))
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_recording)) }, leadingIcon = { Icon(Icons.Filled.Mic, null) }, onClick = { menu = false; record() }, modifier = Modifier.testTag("add_recording"))
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_audio)) }, leadingIcon = { Icon(Icons.Filled.LibraryMusic, null) }, onClick = { menu = false; pickAudio.launch("audio/*") }, modifier = Modifier.testTag("add_audio"))
+                    DropdownMenuItem(text = { Text(stringResource(R.string.add_document)) }, leadingIcon = { Icon(kindIcon(NoteKind.DOCUMENT), null) }, onClick = { menu = false; pickDocument.launch(io.github.taehunkim.jogakbo.notes.Documents.MIME_TYPES) }, modifier = Modifier.testTag("add_document"))
                 }
             }
         },
@@ -211,6 +217,19 @@ fun NotesListScreen(
             scope.launch { val id = c.notes.addLink(url, prompt, summarize, timing); onMain { onOpen(id) } }
         }
     }
+    addDocument?.let { uri ->
+        AddDialog(title = stringResource(R.string.add_document_title), initialUrl = null, askUrl = false, defaultSummarize = autoDocument, defaultNow = defaultNow, onDismiss = { addDocument = null }) { _, prompt, summarize, timing ->
+            addDocument = null
+            scope.launch {
+                runCatching { c.notes.addDocument(uri, prompt, summarize, timing) }
+                    .onSuccess { id -> onMain { onOpen(id) } }
+                    .onFailure { e ->
+                        android.util.Log.w("Jogakbo", "cannot read $uri", e)
+                        onMain { android.widget.Toast.makeText(ctx, res.getString(R.string.audio_cannot_read, e.message ?: ""), android.widget.Toast.LENGTH_LONG).show() }
+                    }
+            }
+        }
+    }
     addAudio?.let { uri ->
         AddDialog(title = stringResource(R.string.add_audio), initialUrl = null, askUrl = false, defaultSummarize = autoAudio, defaultNow = defaultNow, onDismiss = { addAudio = null }) { _, prompt, summarize, timing ->
             addAudio = null
@@ -251,7 +270,7 @@ private fun NoteRow(n: NoteEntity, snippet: String?, tags: List<String>, indexWa
 /** A short status of the note's background work, or null when there is nothing to say. */
 fun status(n: NoteEntity, indexWaiting: Boolean = false): Int? = when {
     n.sourceState == JobState.QUEUED || n.sourceState == JobState.RUNNING ->
-        if (n.kind == NoteKind.AUDIO) R.string.state_transcribing else R.string.state_fetching
+        when (n.kind) { NoteKind.AUDIO -> R.string.state_transcribing; NoteKind.DOCUMENT -> R.string.state_reading_document; else -> R.string.state_fetching }
     n.sourceState == JobState.FAILED -> R.string.state_source_failed
     n.summaryState == JobState.QUEUED || n.summaryState == JobState.RUNNING -> R.string.state_summarizing
     n.summaryState == JobState.FAILED -> R.string.state_summary_failed

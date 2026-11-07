@@ -70,6 +70,7 @@ class ModelHost(
     var embedderOverride: (suspend () -> Embedder?)? = null
     var speechOverride: (suspend () -> SpeechTools)? = null
     var deciderOverride: (suspend () -> Decider?)? = null
+    var ocrOverride: (suspend () -> OcrEngine)? = null
 
     init {
         scope.launch { client.modelChanges.collect { refresh() } }
@@ -151,6 +152,13 @@ class ModelHost(
         return Lease(RemoteSpeechTools(client, can)) { lease?.close() }
     }
 
+    /** OndolSaem's text recognition (ML Kit) for pages without a text layer; calls fail when the host is out of reach. */
+    suspend fun ocr(): Lease<OcrEngine> {
+        ocrOverride?.let { return Lease(it()) { } }
+        val lease = hostLease(Categories.OCR)
+        return Lease(RemoteOcrEngine(client)) { lease?.close() }
+    }
+
     companion object {
         private const val TAG = "Jogakbo.ModelHost"
         const val BACKEND = "OndolSaem"
@@ -204,6 +212,18 @@ private class RemoteSpeechTools(private val client: OndolSaemClient, override va
     override suspend fun transcribe(pcm: File, fromMs: Long, onCue: suspend (Cue) -> Unit) {
         if (!canTranscribe) return
         client.transcribe(pcm, fromMs) { s, e, t -> onCue(Cue(s, e, t)) }
+    }
+}
+
+/** Reads the text in an image (a scanned page). */
+interface OcrEngine {
+    suspend fun recognize(bitmap: android.graphics.Bitmap): String
+}
+
+private class RemoteOcrEngine(private val client: OndolSaemClient) : OcrEngine {
+    override suspend fun recognize(bitmap: android.graphics.Bitmap): String {
+        val jpeg = java.io.ByteArrayOutputStream().also { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it) }.toByteArray()
+        return client.recognizeText(jpeg)
     }
 }
 

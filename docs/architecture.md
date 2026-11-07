@@ -8,7 +8,7 @@ search, and serves them to other apps over a bound service. All AI runs in the c
 
 | Table | What it holds |
 |---|---|
-| `notes` | `uuid` (stable across export/import), `kind` (MEMO, LINK, YOUTUBE, AUDIO), `title`, `body` (original, Markdown), `summary` (Markdown), `summaryEdited`, `summaryPrompt`, `summaryState`/`summaryError`/`summaryModel`, `sourceUrl`, `sourceMeta` (JSON: site, channel, description, fetch time…), `sourceState`/`sourceError`, `audioFile` (under `files/audio`), `durationMs`, `createdAt`, `updatedAt` (text changes), `embeddedAt`/`embedKey`, `taggedAt` (schema 2) |
+| `notes` | `uuid` (stable across export/import), `kind` (MEMO, LINK, YOUTUBE, AUDIO, DOCUMENT), `title`, `body` (original, Markdown), `summary` (Markdown), `summaryEdited`, `summaryPrompt`, `summaryState`/`summaryError`/`summaryModel`, `sourceUrl`, `sourceMeta` (JSON: site, channel, description, fetch time…), `sourceState`/`sourceError`, `audioFile` (under `files/audio`), `durationMs`, `createdAt`, `updatedAt` (text changes), `embeddedAt`/`embedKey`, `taggedAt` (schema 2) |
 | `cues` | One line of a transcript or subtitle track (`startMs`, `endMs`, `text`): playback seek and the transcript list |
 | `chunks` | A piece of a note's text with its embedding (int8 `[scale][int8 × dim]`, `ml/Quant`) and the model id |
 | `tags` (2) | The user's tags: `name` (unique, case-insensitive), `description`, `ordinal` |

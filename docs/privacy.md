@@ -9,7 +9,7 @@
 - **Microphone**: only while you record; a notification shows it, and the service stops with the recording.
 - **Stored data**: the database `jogakbo.db` (notes, transcript lines, embeddings, tags and the decision model's
   answers), audio files in the app's private
-  `files/audio`, and a raw PCM file in `files/rec` during a recording (deleted when it ends). App data is excluded
+  `files/audio`, attached documents in `files/docs` (original files, kept for the user; their text is in the note), and a raw PCM file in `files/rec` during a recording (deleted when it ends). App data is excluded
   from Android backup (`allowBackup=false`); export is the way to keep a copy.
 - **Other apps**: apps signed with Jogakbo's key (Malbotdari) can search and read notes; any other app must be
   allowed by you in Settings › Connections. They get note text, never files.

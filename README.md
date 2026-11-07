@@ -23,6 +23,7 @@ An AI note app for Android whose AI runs on the phone: memos you write, web page
 | Memos | Markdown notes with a formatting toolbar (headings, bold, lists, checklists, quotes, code, links) and a preview; optional summary |
 | Web pages | Share or paste a link: the article is extracted as Markdown and summarized |
 | YouTube | Title, channel, description and subtitles (manual or generated) are saved and summarized; tapping a subtitle line opens the video at that time |
+| Documents | Attach a text, Markdown, PDF, Word, PowerPoint, Excel or OpenDocument file (or share one to the app): the text is read (pages without a text layer by OCR in OndolSaem) and kept as sections per page, slide or sheet; long documents are summarized in parts, then the parts together, and every section is searchable |
 | Recordings | Record in the app (the transcript appears line by line while recording) or import an audio file; the transcript is summarized; tap a line to play from there |
 | Summaries | Your own instructions for every summary and for each one; language of the original or of the app; summaries can be edited, and summarizing again asks before replacing an edited one |
 | Search | By meaning (embeddings made on the phone, at a time you choose: right away, while charging and unused, daily, or by hand; each note can override the default) and by words |

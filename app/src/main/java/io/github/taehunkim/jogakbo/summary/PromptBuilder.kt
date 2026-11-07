@@ -27,6 +27,7 @@ object PromptBuilder {
         NoteKind.MEMO -> "The text is a personal note the user wrote."
         NoteKind.LINK -> "The text is a web page the user saved."
         NoteKind.YOUTUBE -> "The text is a YouTube video's title, description and subtitles (auto-generated subtitles may contain errors)."
+        NoteKind.DOCUMENT -> "The text was extracted from a document the user attached (text, PDF or Office file). Sections are marked with \"## Page N\", slide or sheet headings; layout and images are lost, and text read from scans may contain recognition errors."
         NoteKind.AUDIO -> "The text is a speech-recognition transcript of a recording. It may contain recognition errors: read past obvious ones."
     }
 

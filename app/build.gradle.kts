@@ -5,7 +5,7 @@ plugins {
 }
 
 // Single place to bump the app version: major.minor.patch, versionCode = major*10000 + minor*100 + patch.
-val appVersionName = "0.4.1"
+val appVersionName = "0.5.0"
 val appVersionCode = appVersionName.split(".").let { (a, b, c) -> a.toInt() * 10000 + b.toInt() * 100 + c.toInt() }
 
 android {
@@ -75,12 +75,14 @@ dependencies {
     implementation(libs.commonmark.strikethrough)
     implementation(libs.commonmark.tasklist)
     implementation(libs.jsoup)
+    implementation(libs.pdfbox.android) // text layer of PDF documents (pages without one are read by OCR)
     // Summaries, speech recognition and embeddings run in OndolSaem, reached through its SDK.
     implementation(libs.ondolsaem.sdk)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation("net.sf.kxml:kxml2:2.3.0") // XmlPullParser implementation for JVM unit tests
     testImplementation("org.json:json:20260814") // real org.json for JVM unit tests (android.jar has stubs)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))

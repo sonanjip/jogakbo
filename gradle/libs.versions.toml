@@ -12,6 +12,7 @@ datastore = "1.3.0"
 appcompat = "1.8.0"
 ondolsaemSdk = "sdk-v0.5.0"
 jsoup = "1.24.1"
+pdfbox = "2.0.27.0"
 coroutines = "1.11.0"
 commonmark = "0.32.0"
 serialization = "1.12.0"
@@ -44,6 +45,7 @@ commonmark-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", versi
 commonmark-strikethrough = { module = "org.commonmark:commonmark-ext-gfm-strikethrough", version.ref = "commonmark" }
 commonmark-tasklist = { module = "org.commonmark:commonmark-ext-task-list-items", version.ref = "commonmark" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfbox" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "serialization" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }

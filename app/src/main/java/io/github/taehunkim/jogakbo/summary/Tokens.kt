@@ -43,9 +43,16 @@ object Tokens {
         return out
     }
 
+    /** The first and last `## ` heading of [part] ("Page 12", "Page 14"), or null when it has none. */
+    fun sectionRange(part: String): Pair<String, String>? {
+        val heads = part.lineSequence().filter { it.startsWith("## ") }.map { it.removePrefix("## ").trim().take(40) }.toList()
+        return if (heads.isEmpty()) null else heads.first() to heads.last()
+    }
+
     /** Pieces of [text] (keeping their separators) that each fit [maxTokens]. */
     private fun units(text: String, maxTokens: Int): List<String> {
-        val levels = listOf(Regex("(?<=\\n\\n)"), Regex("(?<=\\n)"), Regex("(?<=[.!?。！？]\\s)"), Regex("(?<=\\s)"))
+        // a "## " heading starts a section (a page, slide or sheet of a document): sections stay whole while they fit
+        val levels = listOf(Regex("(?<=\\n)(?=## )"), Regex("(?<=\\n\\n)"), Regex("(?<=\\n)"), Regex("(?<=[.!?。！？]\\s)"), Regex("(?<=\\s)"))
         fun cut(s: String, level: Int): List<String> {
             if (estimate(s) <= maxTokens) return listOf(s)
             if (level >= levels.size) {

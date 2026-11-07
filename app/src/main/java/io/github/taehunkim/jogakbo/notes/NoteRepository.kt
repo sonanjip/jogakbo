@@ -1,5 +1,6 @@
 package io.github.taehunkim.jogakbo.notes
 
+import org.json.JSONObject
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -37,6 +38,11 @@ class NoteRepository(
     val audioDir: File get() = File(context.filesDir, "audio").apply { mkdirs() }
 
     fun audioFile(note: NoteEntity): File? = note.audioFile?.let { File(audioDir, it) }?.takeIf { it.exists() }
+
+    val docDir: File get() = File(context.filesDir, "docs").apply { mkdirs() }
+
+    /** The attached original of a document note (its name is in `sourceMeta`), if it is still there. */
+    fun docFile(note: NoteEntity): File? = Documents.fileName(note)?.let { File(docDir, it) }?.takeIf { it.exists() }
 
     /** A new memo. [summarize]: also make a summary (with [prompt]). [timing]: this note's own choice of now or later. */
     suspend fun createMemo(title: String, body: String, summarize: Boolean = false, prompt: String? = null, timing: Boolean? = null): Long {
@@ -114,6 +120,35 @@ class NoteRepository(
         return id
     }
 
+    /**
+     * A note from a document (txt, md, PDF, docx, pptx, xlsx, odf): the file is copied into the app (so the original
+     * stays openable), its text is read in the background and becomes the original of the note.
+     */
+    suspend fun addDocument(uri: Uri, prompt: String? = null, summarize: Boolean? = null, timing: Boolean? = null): Long {
+        val uuid = UUID.randomUUID().toString()
+        val name = displayName(uri) ?: "document"
+        val ext = Documents.extensionOf(name, context.contentResolver.getType(uri))
+        val fileName = "$uuid.$ext"
+        val size = withContext(Dispatchers.IO) {
+            val target = File(docDir, fileName)
+            context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } }
+                ?: throw java.io.IOException("cannot open $uri")
+            target.length()
+        }
+        val now = clock()
+        val meta = JSONObject(Timing.withOverride(summarize?.let { """{"summarize":$it}""" }, timing) ?: "{}")
+            .put(Documents.KEY_FILE, fileName).put(Documents.KEY_NAME, name).put(Documents.KEY_SIZE, size)
+        val id = dao.insert(
+            NoteEntity(
+                uuid = uuid, kind = NoteKind.DOCUMENT, title = name.substringBeforeLast('.').ifBlank { name }.take(MAX_TITLE),
+                summaryPrompt = prompt?.trim()?.ifEmpty { null }, sourceState = JobState.QUEUED, sourceMeta = meta.toString(),
+                createdAt = now, updatedAt = now,
+            ),
+        )
+        jobs.fetchSource(id, NoteKind.DOCUMENT)
+        return id
+    }
+
     /** A note for a recording that is about to start (RecordingService fills it). */
     suspend fun newRecording(title: String): NoteEntity {
         val now = clock()
@@ -150,6 +185,7 @@ class NoteRepository(
         val n = dao.get(id) ?: return
         jobs.cancel(id)
         audioFile(n)?.delete()
+        docFile(n)?.delete()
         dao.delete(id)
         jobs.noteChanged()
     }

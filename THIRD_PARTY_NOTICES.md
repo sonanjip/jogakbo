@@ -12,8 +12,9 @@ It uses the components below. Versions come from [`gradle/libs.versions.toml`](g
 | OndolSaem client SDK | sdk-v0.3.0 | Apache-2.0 |
 | commonmark-java (+ GFM tables, strikethrough, task list items) | 0.32.0 | BSD-2-Clause |
 | jsoup | 1.24.1 | MIT |
+| pdfbox-android | 2.0.27.0 | Apache-2.0 (text layer of PDF documents) |
 
-Code adapted from the sibling projects Nunsori (text chunkers, audio decoding, int8 vectors, caller approval) and
+Code adapted from the sibling projects Nunsori (text chunkers, document extraction: Office/PDF parsers and text decoding, audio decoding, int8 vectors, caller approval) and
 Malbotdari (Markdown rendering, model host connection) is by the same author under the same license.
 
 ## Models

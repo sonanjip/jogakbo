@@ -33,7 +33,21 @@
     <string name="action_write_summary">직접 요약 쓰기</string>
     <string name="add">추가</string>
     <string name="add_audio">오디오 파일</string>
-    <string name="add_link">웹 · 유튜브 링크</string>
+    <string name="show_more">더 보기</string>
+    <string name="add_document">문서</string>
+    <string name="add_document_title">문서 추가</string>
+    <string name="kind_document">문서</string>
+    <string name="job_reading_document">문서 읽는 중</string>
+    <string name="state_reading_document">문서 읽는 중…</string>
+    <string name="doc_unsupported">지원하지 않는 파일입니다 (텍스트, 마크다운, PDF, Word, PowerPoint, Excel, OpenDocument만 지원).</string>
+    <string name="doc_too_big">파일이 너무 커서 읽을 수 없습니다.</string>
+    <string name="doc_no_text">문서에서 글자를 찾지 못했습니다.</string>
+    <string name="doc_unreadable">파일을 읽을 수 없습니다 (손상되었을 수 있습니다).</string>
+    <string name="doc_password">암호가 걸린 문서입니다.</string>
+    <string name="doc_file_missing">첨부한 파일이 없습니다.</string>
+    <string name="doc_truncated">문서가 매우 길어 앞부분만 텍스트로 보관했습니다.</string>
+    <string name="doc_info">%1$s · %2$d쪽</string>
+    <string name="doc_info_ocr">%1$s · %2$d쪽 (%3$d쪽은 글자 인식으로 읽음)</string>    <string name="add_link">웹 · 유튜브 링크</string>
     <string name="add_link_url">주소 (https://…)</string>
     <string name="add_memo">새 메모</string>
     <string name="add_recording">녹음</string>

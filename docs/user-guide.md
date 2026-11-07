@@ -15,6 +15,7 @@ word search and export work without OndolSaem.
   whether to summarize and add an instruction for this summary ("make a table of the prices").
 - **Record**: the transcript appears line by line while you record (it lags a few seconds). Pause and Stop are on
   the screen and in the notification; recording continues with the screen off.
+- **Document**: pick a text, Markdown, PDF, Word, PowerPoint, Excel or OpenDocument file (or share one to Jogakbo); the text is read in the background, pages without a text layer by text recognition (OndolSaem). The original file stays in the app; very long documents keep their first ~1.5 million characters. Summaries of long documents are made in parts and then combined.
 - **Audio file**: pick a file or share one from a recorder app; it is transcribed in the background.
 
 ## A note

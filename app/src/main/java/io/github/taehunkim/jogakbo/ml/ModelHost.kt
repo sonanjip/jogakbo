@@ -58,7 +58,8 @@ class ModelHost(
     private val context: Context,
     private val settings: SettingsStore,
     private val scope: CoroutineScope,
-    val client: OndolSaemClient = OndolSaemClient(context),
+    // a cold OndolSaem (process start, e.g. during an idle pass) can need longer than the default 15 s to answer
+    val client: OndolSaemClient = OndolSaemClient(context, connectTimeoutMs = 60_000),
 ) {
     private val _state = MutableStateFlow(HostState(HostState.Status.UNKNOWN))
     val state: StateFlow<HostState> = _state.asStateFlow()

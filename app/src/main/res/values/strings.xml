@@ -78,6 +78,15 @@
     <string name="embed_scheduled">Once a day</string>
     <string name="embed_scheduled_desc">At a time you choose.</string>
     <string name="embed_waiting">Notes waiting: %1$d</string>
+    <string name="embed_waiting_detail">Waiting – summaries: %1$d, search index: %2$d</string>
+    <string name="embed_stage_summary">Summarizing %1$d of %2$d: %3$s</string>
+    <string name="embed_stage_index">Preparing notes for search (%1$d of %2$d)</string>
+    <string name="embed_stage_index_start">Preparing notes for search…</string>
+    <string name="embed_stage_tags">Tagging notes…</string>
+    <string name="embed_enqueued">Starting…</string>
+    <string name="embed_result">Last run: %1$d summarized, %2$d indexed, %3$d tagged.</string>
+    <string name="embed_result_blocked">OndolSaem’s language model was not available, so the remaining summaries keep waiting.</string>
+    <string name="state_index_waiting">Search index waits</string>
     <string name="export">Export…</string>
     <string name="export_audio">Include audio files</string>
     <string name="export_done">Exported %1$d notes and %2$d audio files.</string>

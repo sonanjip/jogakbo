@@ -45,7 +45,11 @@ Notes › Search by meaning). The chips filter by kind.
   a change; while charging and not in use; once a day at a time; or only with *Summarize, index and tag now*). When you
   add a note, *Summarize, index and tag now* under *Make a summary* overrides this for that note, both ways. "Not in use" means the screen has been off for 10, 30 or
   60 minutes when the battery is at 90 % or more, 70–89 % or below 70 % (*Sooner* and *Later* shorten or lengthen
-  this); it stops when you use the phone.
+  this); it stops when you use the phone. Under *Summarize, index and tag now* Settings shows how many summaries and notes
+  are waiting, what the run is doing (which note is being summarized, indexing, tagging) and what the last run did; the
+  button also tries again the summaries that failed. In the note list a note shows *Summary waits*, *Summarizing…*,
+  *Summary failed* or *Search index waits*. If OndolSaem's language model is not available during an automatic run, the
+  summaries keep waiting for the next run instead of failing.
 - **Tags**: your tags (add, edit with an optional description of what belongs there, reorder, delete), automatic
   tagging on or off, and *Tag all notes again*. Seven example tags are added at first start.
 - **Data**: export a ZIP (one Markdown file per note with its tags, and the tag list; summaries and audio optional) and import a ZIP or a Markdown

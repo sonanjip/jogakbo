@@ -14,6 +14,8 @@ import io.github.taehunkim.jogakbo.notes.Bodies
 import io.github.taehunkim.jogakbo.notes.NoteJobs
 import io.github.taehunkim.jogakbo.summary.SummaryRequest
 import io.github.taehunkim.jogakbo.summary.Summarizer
+import io.github.taehunkim.ondolsaem.sdk.HostCallException
+import io.github.taehunkim.ondolsaem.sdk.HostUnavailableException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
@@ -28,16 +30,21 @@ class SummaryJob(
     private val jobs: NoteJobs,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    /** Returns false when the job should be tried again later (OndolSaem not reachable). */
-    suspend fun run(noteId: Long, progress: (done: Int, total: Int) -> Unit = { _, _ -> }): Boolean {
+    /**
+     * Returns false when the job should be tried again later (OndolSaem or its language model not reachable). With
+     * [keepWaiting] (the passes that make waiting summaries) the note then goes back to waiting instead of failing for
+     * good, so the next pass tries it again.
+     */
+    suspend fun run(noteId: Long, progress: (done: Int, total: Int) -> Unit = { _, _ -> }, keepWaiting: Boolean = false): Boolean {
         val note = dao.get(noteId) ?: return true
         val text = input(note, dao.cues(noteId).map { Cue(it.startMs, it.endMs, it.text) })
         if (text.replace(Regex("\\s+"), "").length < MIN_CHARS) {
             dao.setSummaryState(noteId, JobState.FAILED, context.getString(R.string.summary_too_short)); return true
         }
         dao.setSummaryState(noteId, JobState.RUNNING)
-        val lease = models.text()
+        val lease = try { models.text() } catch (e: HostUnavailableException) { null } catch (e: HostCallException) { null }
         if (lease == null) {
+            if (keepWaiting) { dao.setSummaryState(noteId, JobState.DEFERRED, context.getString(R.string.summary_no_model)); return false }
             dao.setSummaryState(noteId, JobState.FAILED, context.getString(R.string.summary_no_model)); return true
         }
         return try {
@@ -55,6 +62,9 @@ class SummaryJob(
             true
         } catch (e: CancellationException) {
             dao.setSummaryState(noteId, JobState.NONE); throw e
+        } catch (e: HostUnavailableException) {
+            if (keepWaiting) { dao.setSummaryState(noteId, JobState.DEFERRED, e.message); false }
+            else { dao.setSummaryState(noteId, JobState.FAILED, e.message ?: e.javaClass.simpleName); true }
         } catch (e: Exception) {
             dao.setSummaryState(noteId, JobState.FAILED, e.message ?: e.javaClass.simpleName); true
         }

@@ -91,6 +91,7 @@ class EmbedScheduler(private val context: Context, private val settings: Setting
         val req = OneTimeWorkRequestBuilder<EmbedWorker>()
             .setInitialDelay(delaySec, TimeUnit.SECONDS)
             .setInputData(workDataOf(EmbedWorker.KEY_SOURCE to if (auto) "auto" else "now"))
+            .apply { if (!auto) addTag(NOW) }
             .build()
         wm.enqueueUniqueWork(if (auto) AUTO else NOW, ExistingWorkPolicy.REPLACE, req)
     }
@@ -132,19 +133,46 @@ class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
             Notifications.ID_EMBED,
             Notifications.progress(applicationContext, id, applicationContext.getString(R.string.job_embedding), null, done, total, null),
         )
-        // summaries first: they are part of what is embedded and tagged
-        if (!auto) for (id in c.db.noteDao().deferredSummaries()) {
-            if (!keepGoing()) break
-            runCatching { c.summaryJob.run(id) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+        // summaries first: they are part of what is embedded and tagged. "Summarize, index and tag now" (the user asked)
+        // also tries the summaries that failed before; the other passes take the waiting ones.
+        val dao = c.db.noteDao()
+        var summarized = 0
+        var summariesBlocked = false
+        if (!auto) {
+            val ids = dao.deferredSummaries() + if (source == "now") dao.failedSummaries() else emptyList()
+            for ((i, id) in ids.withIndex()) {
+                if (!keepGoing()) break
+                val title = dao.get(id)?.title.orEmpty()
+                report(STAGE_SUMMARY, i, ids.size, title)
+                runCatching { setForeground(summaryInfo(title, i, ids.size)) }
+                val ok = try { c.summaryJob.run(id, keepWaiting = true) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { true }
+                // the language model is out of reach: the rest would fail the same way; they wait for the next pass
+                if (!ok) { summariesBlocked = true; break }
+                if (dao.get(id)?.summaryState == io.github.taehunkim.jogakbo.data.db.JobState.DONE) summarized++
+            }
         }
-        val pass = c.indexer.embedPending({ d, t -> if (t > 3) runCatching { runBlocking { setForeground(info(d, t)) } } }, keepGoing, accept)
-        if (pass.embedded > 0) NotesEvents.notifyChanged(applicationContext)
+        report(STAGE_INDEX, 0, 0, "")
+        val pass = c.indexer.embedPending({ d, t -> runBlocking { report(STAGE_INDEX, d, t, "") }; if (t > 3) runCatching { runBlocking { setForeground(info(d, t)) } } }, keepGoing, accept)
+        if (pass.embedded > 0 || summarized > 0) NotesEvents.notifyChanged(applicationContext)
         // tags follow the same timing; a missing decision model does not make the pass retry
+        report(STAGE_TAGS, 0, 0, "")
         val tagged = if (c.settings.autoTag.first() && keepGoing()) runCatching { c.tagger.tagPending(keepGoing = keepGoing, accept = accept) }.getOrNull() else null
-        if ((tagged?.tagged ?: 0) > 0 && pass.embedded == 0) NotesEvents.notifyChanged(applicationContext)
-        if (idleRun && !keepGoing()) return Result.success()
-        return if (pass.noModel || pass.left > 0) Result.retry() else Result.success()
+        if ((tagged?.tagged ?: 0) > 0 && pass.embedded == 0 && summarized == 0) NotesEvents.notifyChanged(applicationContext)
+        val out = workDataOf(OUT_SUMMARIZED to summarized, OUT_EMBEDDED to pass.embedded, OUT_TAGGED to (tagged?.tagged ?: 0), OUT_BLOCKED to summariesBlocked)
+        if (idleRun && !keepGoing()) return Result.success(out)
+        // a summary that could not start waits and the next idle or scheduled pass tries it again; "now" says so instead
+        val again = pass.noModel || pass.left > 0 || (summariesBlocked && source != "now")
+        return if (again) Result.retry() else Result.success(out)
     }
+
+    private suspend fun report(stage: String, done: Int, total: Int, note: String) {
+        runCatching { setProgress(workDataOf(PROGRESS_STAGE to stage, PROGRESS_DONE to done, PROGRESS_TOTAL to total, PROGRESS_NOTE to note)) }
+    }
+
+    private fun summaryInfo(title: String, done: Int, total: Int) = Notifications.foregroundInfo(
+        Notifications.ID_EMBED,
+        Notifications.progress(applicationContext, id, applicationContext.getString(R.string.job_summarizing), title, done, total, null),
+    )
 
     /** True when a note that asked for "now" still needs embedding or tags (so an automatic pass has work). */
     private suspend fun forcedNotesWaiting(c: io.github.taehunkim.jogakbo.AppContainer): Boolean {
@@ -162,5 +190,19 @@ class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
         Notifications.ID_EMBED, Notifications.progress(applicationContext, id, applicationContext.getString(R.string.job_embedding), null, 0, 0, null),
     )
 
-    companion object { const val KEY_SOURCE = "source" }
+    companion object {
+        const val KEY_SOURCE = "source"
+        // progress (what the pass is doing) and result (what it did), read by Settings
+        const val PROGRESS_STAGE = "stage"
+        const val PROGRESS_DONE = "done"
+        const val PROGRESS_TOTAL = "total"
+        const val PROGRESS_NOTE = "note"
+        const val STAGE_SUMMARY = "summary"
+        const val STAGE_INDEX = "index"
+        const val STAGE_TAGS = "tags"
+        const val OUT_SUMMARIZED = "summarized"
+        const val OUT_EMBEDDED = "embedded"
+        const val OUT_TAGGED = "tagged"
+        const val OUT_BLOCKED = "blocked"
+    }
 }

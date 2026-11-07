@@ -55,6 +55,13 @@ interface NoteDao {
     @Query("SELECT id FROM notes WHERE summaryState = 'DEFERRED' AND sourceState IN ('NONE','DONE','FAILED') ORDER BY updatedAt DESC")
     suspend fun deferredSummaries(): List<Long>
 
+    /** Summaries that failed and have no text yet: "Summarize, index and tag now" tries them again. */
+    @Query("SELECT id FROM notes WHERE summaryState = 'FAILED' AND summary IS NULL AND sourceState IN ('NONE','DONE','FAILED') ORDER BY updatedAt DESC")
+    suspend fun failedSummaries(): List<Long>
+
+    @Query("SELECT COUNT(*) FROM notes WHERE summaryState = 'DEFERRED' AND sourceState IN ('NONE','DONE','FAILED')")
+    fun observeDeferredSummaries(): Flow<Int>
+
     @Query("SELECT id FROM notes WHERE sourceState IN ('QUEUED','RUNNING')")
     suspend fun pendingSources(): List<Long>
 
@@ -88,6 +95,9 @@ interface NoteDao {
 
     @Query("SELECT COUNT(*) FROM notes WHERE sourceState IN ('NONE','DONE','FAILED') AND (embedKey IS NULL OR embedKey != :key OR embeddedAt IS NULL OR embeddedAt < updatedAt)")
     fun observeNeedingEmbedding(key: String): Flow<Int>
+
+    @Query("SELECT id FROM notes WHERE sourceState IN ('NONE','DONE','FAILED') AND (embedKey IS NULL OR embedKey != :key OR embeddedAt IS NULL OR embeddedAt < updatedAt)")
+    fun observeNeedingEmbeddingIds(key: String): Flow<List<Long>>
 
     @Query("DELETE FROM chunks WHERE noteId = :noteId")
     suspend fun deleteChunks(noteId: Long)

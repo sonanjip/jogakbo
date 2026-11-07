@@ -85,6 +85,12 @@ Playback (`ui/notes/AudioPlayer`, `MediaPlayer`) seeks when a cue is tapped; You
   charging; the pass runs only when OndolSaem SDK's `IdleRule` says idle: the screen off for 10/30/60 min at ≥ 90 % /
   70–89 % / < 70 % battery with the Normal preset, Sooner 5/15/30, Later 30/60/120; screen-off times from
   `IdleState`; embedding and tagging stop between notes when the screen turns on), MANUAL ("Embed now").
+- A pass that cannot reach OndolSaem's language model puts the waiting summary back to `DEFERRED` (`SummaryJob.run(keepWaiting
+  = true)` returns false, the rest of the summaries wait, the idle/scheduled worker retries) instead of `FAILED`; the manual
+  pass (`source = "now"`, tagged `embed-now`) also retries summaries that failed earlier (`NoteDao.failedSummaries`).
+  The worker reports `setProgress` (stage summary/index/tags, done, total, note title), runs the summaries as a foreground
+  service with the progress notification, and returns the counts (`OUT_SUMMARIZED/EMBEDDED/TAGGED/BLOCKED`); Settings
+  shows both under the button, and the note list marks notes whose search index is waiting.
 - `NoteSearch`: all vectors of the current model in memory (cached by a chunk stamp), a note's semantic score is
   its best chunk; notes below `max(0.30, top − 0.12)` are dropped. Words: every word of the query in the title,
   summary or original (SQL LIKE on the longest word, then checked in memory). Score = 1.2 × word score + semantic

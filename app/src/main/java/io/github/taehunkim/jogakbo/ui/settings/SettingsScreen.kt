@@ -68,7 +68,13 @@ import io.github.taehunkim.jogakbo.data.db.NoteKind
 import io.github.taehunkim.jogakbo.data.prefs.EmbedMode
 import io.github.taehunkim.jogakbo.data.prefs.SettingsStore
 import io.github.taehunkim.jogakbo.data.prefs.SummaryLanguage
+import io.github.taehunkim.jogakbo.index.EmbedScheduler
+import io.github.taehunkim.jogakbo.index.EmbedWorker
 import io.github.taehunkim.jogakbo.index.NoteIndexer
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.WorkQuery
 import io.github.taehunkim.jogakbo.rememberContainer
 import io.github.taehunkim.jogakbo.ui.common.WarningCard
 import io.github.taehunkim.jogakbo.ui.common.kindLabel
@@ -220,7 +226,12 @@ private fun NotesTab() {
         }
     }
     val waiting by remember { c.settings.embeddingModelId.flatMapLatest { c.db.noteDao().observeNeedingEmbedding(NoteIndexer.key(it)) } }.collectAsStateWithLifecycle(0)
-    Text(stringResource(R.string.embed_waiting, waiting), style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("embed_waiting"))
+    val waitingSummaries by remember { c.db.noteDao().observeDeferredSummaries() }.collectAsStateWithLifecycle(0)
+    Text(
+        if (waitingSummaries > 0) stringResource(R.string.embed_waiting_detail, waitingSummaries, waiting) else stringResource(R.string.embed_waiting, waiting),
+        style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("embed_waiting"),
+    )
+    EmbedProgress()
     OutlinedButton(onClick = { c.embedScheduler.runNow() }, modifier = Modifier.testTag("embed_now")) { Text(stringResource(R.string.embed_now)) }
     if (pickTime) {
         val state = rememberTimePickerState(minutes / 60, minutes % 60)
@@ -230,6 +241,48 @@ private fun NotesTab() {
             dismissButton = { TextButton(onClick = { pickTime = false }) { Text(stringResource(R.string.action_cancel)) } },
             text = { TimePicker(state) },
         )
+    }
+}
+
+/** What the summarize-index-tag pass is doing right now (any trigger), or what the last one did. */
+@Composable
+private fun EmbedProgress() {
+    val context = LocalContext.current
+    val infos by remember {
+        WorkManager.getInstance(context).getWorkInfosFlow(
+            WorkQuery.fromUniqueWorkNames(EmbedScheduler.NOW, EmbedScheduler.IDLE, EmbedScheduler.SCHEDULED, EmbedScheduler.AUTO),
+        )
+    }.collectAsStateWithLifecycle(emptyList())
+    val running = infos.firstOrNull { it.state == WorkInfo.State.RUNNING }
+    val enqueuedNow = infos.any { it.state == WorkInfo.State.ENQUEUED && EmbedScheduler.NOW in it.tags }
+    // the last manual pass (the periodic ones go back to ENQUEUED, the pass after a change is not the user's)
+    val last = infos.firstOrNull { it.state == WorkInfo.State.SUCCEEDED && EmbedScheduler.NOW in it.tags && it.outputData.keyValueMap.containsKey(EmbedWorker.OUT_EMBEDDED) }
+    when {
+        running != null -> {
+            val p = running.progress
+            val total = p.getInt(EmbedWorker.PROGRESS_TOTAL, 0)
+            val done = p.getInt(EmbedWorker.PROGRESS_DONE, 0)
+            val text = when (p.getString(EmbedWorker.PROGRESS_STAGE)) {
+                EmbedWorker.STAGE_SUMMARY -> stringResource(R.string.embed_stage_summary, done + 1, total, p.getString(EmbedWorker.PROGRESS_NOTE).orEmpty())
+                EmbedWorker.STAGE_INDEX -> if (total > 0) stringResource(R.string.embed_stage_index, done, total) else stringResource(R.string.embed_stage_index_start)
+                EmbedWorker.STAGE_TAGS -> stringResource(R.string.embed_stage_tags)
+                else -> stringResource(R.string.embed_enqueued)
+            }
+            Column(Modifier.testTag("embed_progress"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(text, style = MaterialTheme.typography.bodySmall)
+                if (total > 0) LinearProgressIndicator(progress = { done.toFloat() / total }, modifier = Modifier.fillMaxWidth())
+                else LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+        }
+        enqueuedNow -> Text(stringResource(R.string.embed_enqueued), style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("embed_progress"))
+        last != null -> {
+            val o = last.outputData
+            Text(
+                stringResource(R.string.embed_result, o.getInt(EmbedWorker.OUT_SUMMARIZED, 0), o.getInt(EmbedWorker.OUT_EMBEDDED, 0), o.getInt(EmbedWorker.OUT_TAGGED, 0)) +
+                    if (o.getBoolean(EmbedWorker.OUT_BLOCKED, false)) "\n" + stringResource(R.string.embed_result_blocked) else "",
+                style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("embed_result"),
+            )
+        }
     }
 }
 

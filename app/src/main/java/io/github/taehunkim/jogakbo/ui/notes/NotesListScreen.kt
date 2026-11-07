@@ -49,6 +49,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -96,6 +98,9 @@ fun NotesListScreen(
     val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val notes by c.db.noteDao().observeAll().collectAsStateWithLifecycle(emptyList())
+    val needIndex by remember {
+        c.settings.embeddingModelId.flatMapLatest { c.db.noteDao().observeNeedingEmbeddingIds(io.github.taehunkim.jogakbo.index.NoteIndexer.key(it)) }.map { it.toSet() }
+    }.collectAsStateWithLifecycle(emptySet())
     var query by rememberSaveable { mutableStateOf("") }
     var kinds by remember { mutableStateOf(emptySet<NoteKind>()) }
     var tagFilter by rememberSaveable { mutableStateOf(emptyList<Long>()) }
@@ -190,7 +195,7 @@ fun NotesListScreen(
                 }
             } else LazyColumn(Modifier.fillMaxSize().testTag("notes_list")) {
                 items(shown, key = { it.first.id }) { (n, snippet) ->
-                    NoteRow(n, snippet, tagsOf[n.id].orEmpty()) { onOpen(n.id) }
+                    NoteRow(n, snippet, tagsOf[n.id].orEmpty(), indexWaiting = n.id in needIndex) { onOpen(n.id) }
                     HorizontalDivider()
                 }
             }
@@ -222,7 +227,7 @@ fun NotesListScreen(
 }
 
 @Composable
-private fun NoteRow(n: NoteEntity, snippet: String?, tags: List<String>, onClick: () -> Unit) {
+private fun NoteRow(n: NoteEntity, snippet: String?, tags: List<String>, indexWaiting: Boolean = false, onClick: () -> Unit) {
     val ctx = LocalContext.current
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp).testTag("note_${n.id}"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Icon(kindIcon(n.kind), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
@@ -232,7 +237,7 @@ private fun NoteRow(n: NoteEntity, snippet: String?, tags: List<String>, onClick
             if (preview.isNotBlank()) Text(preview, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(formatDate(ctx, n.createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                status(n)?.let { Text(stringResource(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary) }
+                status(n, indexWaiting)?.let { Text(stringResource(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary) }
             }
             if (tags.isNotEmpty()) Text(
                 tags.joinToString(" ") { "#$it" }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary,
@@ -244,13 +249,14 @@ private fun NoteRow(n: NoteEntity, snippet: String?, tags: List<String>, onClick
 }
 
 /** A short status of the note's background work, or null when there is nothing to say. */
-fun status(n: NoteEntity): Int? = when {
+fun status(n: NoteEntity, indexWaiting: Boolean = false): Int? = when {
     n.sourceState == JobState.QUEUED || n.sourceState == JobState.RUNNING ->
         if (n.kind == NoteKind.AUDIO) R.string.state_transcribing else R.string.state_fetching
     n.sourceState == JobState.FAILED -> R.string.state_source_failed
     n.summaryState == JobState.QUEUED || n.summaryState == JobState.RUNNING -> R.string.state_summarizing
     n.summaryState == JobState.FAILED -> R.string.state_summary_failed
     n.summaryState == JobState.DEFERRED -> R.string.state_summary_waiting
+    indexWaiting -> R.string.state_index_waiting
     else -> null
 }
 

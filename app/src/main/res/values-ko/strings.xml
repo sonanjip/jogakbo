@@ -78,6 +78,15 @@
     <string name="embed_scheduled">하루 한 번</string>
     <string name="embed_scheduled_desc">정한 시각에.</string>
     <string name="embed_waiting">대기 중인 노트: %1$d개</string>
+    <string name="embed_waiting_detail">대기 중 – 요약: %1$d개, 검색 인덱스: %2$d개</string>
+    <string name="embed_stage_summary">요약 중 (%1$d/%2$d): %3$s</string>
+    <string name="embed_stage_index">검색용으로 노트 준비 중 (%1$d/%2$d)</string>
+    <string name="embed_stage_index_start">검색용으로 노트 준비 중…</string>
+    <string name="embed_stage_tags">태깅 중…</string>
+    <string name="embed_enqueued">시작하는 중…</string>
+    <string name="embed_result">마지막 실행: 요약 %1$d개, 인덱싱 %2$d개, 태깅 %3$d개.</string>
+    <string name="embed_result_blocked">온돌샘의 언어 모델을 쓸 수 없어서 남은 요약은 계속 대기합니다.</string>
+    <string name="state_index_waiting">검색 인덱스 대기 중</string>
     <string name="export">내보내기…</string>
     <string name="export_audio">오디오 파일 포함</string>
     <string name="export_done">노트 %1$d개와 오디오 %2$d개를 내보냈습니다.</string>

@@ -38,6 +38,8 @@ object Jogakbo {
     object Tools {
         const val SEARCH_NOTES = "search_notes"
         const val READ_NOTE = "read_note"
+        /** Added later as a tool only (no AIDL change): the passages of one note closest to a question. */
+        const val SEARCH_IN_NOTE = "search_in_note"
     }
 
     /** Error codes of [JogakboCallException] (sent over Binder by [JogakboErrors]). */

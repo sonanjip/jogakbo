@@ -65,6 +65,10 @@ class NoteIndexer(private val dao: NoteDao, private val models: ModelHost, priva
 
         fun key(modelId: String) = "$modelId|n$NOTE_VERSION"
 
+        /** How many of [chunks] come from the summary (they are first). */
+        fun summaryChunkCount(note: NoteEntity): Int =
+            note.summary?.trim()?.takeIf { it.isNotEmpty() }?.let { MarkdownChunker().chunk(it, note.title).chunks.size } ?: 0
+
         /** The summary first (one chunk, it is short), then the original in heading-aware chunks. */
         fun chunks(note: NoteEntity): List<Piece> {
             val out = ArrayList<Piece>()

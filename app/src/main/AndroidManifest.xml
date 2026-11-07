@@ -11,6 +11,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <!-- To tell whether the assistant app Malbotdari is installed ("Ask in chat"). -->
+    <queries>
+        <package android:name="io.github.taehunkim.malbotdari" />
+    </queries>
+
     <application
         android:name=".JogakboApp"
         android:allowBackup="false"

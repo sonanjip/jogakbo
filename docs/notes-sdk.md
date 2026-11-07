@@ -15,7 +15,7 @@ user and fails with `NOT_APPROVED` (`JogakboUnavailableException.Reason.NOT_APPR
 | Method | Returns |
 |---|---|
 | `hello(clientJson)` | `{"api","minClientApi","appVersion"}` (`CLIENT_TOO_OLD` below the minimum) |
-| `tools()` | `[{"name","description","parameters","confirm":false}]`: `search_notes`, `read_note` |
+| `tools()` | `[{"name","description","parameters","confirm":false}]`: `search_notes`, `read_note`, `search_in_note` |
 | `runTool(name, argsJson)` | The text the model sees |
 | `notes(ids)` | `[{"note_id","title","kind","created","updated","url"?,"tags"?}]` |
 | `readNote(id, maxChars)` | Markdown: `# title`, `Source:`, `## Summary`, `## Original` |
@@ -29,6 +29,11 @@ Tools:
   `No matching notes.`.
 - `read_note(note_id, offset?, max_chars?)`: the note's `tags` and a slice (default 3000, up to 6000 characters) with `next_offset` when
   more is left.
+- `search_in_note(note_id, query, limit?)` (a tool only, no AIDL change; added in 0.5.0): the best 1-5 passages (default 3, up to
+  900 characters each) of ONE note for a question, so a chat reads a long note or document without reading all of it. Each passage
+  has `ordinal`, `section` (heading path, with the page for documents), `part: "summary"` for summary chunks and `score`; the reply
+  also has `method` (`semantic` when the stored chunks are current and made by the installed embedding model, else `words` over a
+  fresh cut of the note, so a note not embedded yet works) and `total_passages`. Raw cosine, not the search's relative scoring.
 
 `Jogakbo.ACTION_NOTES_CHANGED` is broadcast explicitly to apps with a receiver (the SDK declares
 `NotesChangedReceiver`; set its `handler` in `Application.onCreate`). `Jogakbo.openNoteIntent(id)` opens a note.

@@ -81,7 +81,19 @@ fun NoteDetailScreen(noteId: Long, onBack: () -> Unit, onEdit: () -> Unit, onEdi
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var summarizeDialog by remember { mutableStateOf(false) }
+    var askChat by remember { mutableStateOf(false) }
     val n = note
+    if (askChat) {
+        // the chat is the Malbotdari app: hand it this note, or say where to get it
+        androidx.compose.runtime.LaunchedEffect(Unit) { if (io.github.taehunkim.jogakbo.Malbotdari.open(ctx, listOf(noteId))) askChat = false }
+        if (!io.github.taehunkim.jogakbo.Malbotdari.isInstalled(ctx)) AlertDialog(
+            onDismissRequest = { askChat = false },
+            title = { Text(stringResource(R.string.malbot_title)) },
+            text = { Text(stringResource(R.string.malbot_needed)) },
+            confirmButton = { TextButton(onClick = { io.github.taehunkim.jogakbo.Malbotdari.openReleases(ctx); askChat = false }) { Text(stringResource(R.string.malbot_get)) } },
+            dismissButton = { TextButton(onClick = { askChat = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -93,6 +105,10 @@ fun NoteDetailScreen(noteId: Long, onBack: () -> Unit, onEdit: () -> Unit, onEdi
                     IconButton(onClick = { menu = true }, modifier = Modifier.testTag("note_menu")) { Icon(Icons.Filled.MoreVert, null) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         if (n != null && n.kind != NoteKind.MEMO) DropdownMenuItem(text = { Text(stringResource(R.string.action_edit_original)) }, onClick = { menu = false; onEdit() })
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_ask_chat)) },
+                            onClick = { menu = false; askChat = true }, modifier = Modifier.testTag("ask_chat"),
+                        )
                         DropdownMenuItem(text = { Text(stringResource(R.string.action_share)) }, onClick = { menu = false; n?.let { shareText(ctx, it.title, NotesApi.markdown(it)) } })
                         if (n?.audioFile != null && n.sourceState != JobState.RUNNING) DropdownMenuItem(text = { Text(stringResource(R.string.action_delete_audio)) }, onClick = { menu = false; scope.launch { c.notes.deleteAudio(noteId) } })
                         DropdownMenuItem(text = { Text(stringResource(R.string.action_delete)) }, onClick = { menu = false; confirmDelete = true }, modifier = Modifier.testTag("delete_note"))

@@ -23,6 +23,10 @@
     <string name="action_retry">다시 시도</string>
     <string name="action_save">저장</string>
     <string name="action_share">공유</string>
+    <string name="action_ask_chat">채팅으로 묻기</string>
+    <string name="malbot_title">말벗다리에서 묻기</string>
+    <string name="malbot_needed">채팅 비서는 별도 앱 말벗다리(Malbotdari)입니다. 조각보를 통해 노트를 읽습니다. 노트에 대해 물으려면 설치하세요.</string>
+    <string name="malbot_get">말벗다리 받기</string>
     <string name="action_stop">중지</string>
     <string name="action_summarize">요약하기</string>
     <string name="action_summarize_again">다시 요약</string>

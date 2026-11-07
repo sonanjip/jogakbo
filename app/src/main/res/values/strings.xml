@@ -23,6 +23,10 @@
     <string name="action_retry">Retry</string>
     <string name="action_save">Save</string>
     <string name="action_share">Share</string>
+    <string name="action_ask_chat">Ask in chat</string>
+    <string name="malbot_title">Ask in Malbotdari</string>
+    <string name="malbot_needed">The assistant chat is the app Malbotdari (말벗다리). It reads your notes through Jogakbo: install it to ask about them.</string>
+    <string name="malbot_get">Get Malbotdari</string>
     <string name="action_stop">Stop</string>
     <string name="action_summarize">Summarize</string>
     <string name="action_summarize_again">Summarize again</string>

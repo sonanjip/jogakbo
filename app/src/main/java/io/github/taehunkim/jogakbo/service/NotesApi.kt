@@ -32,6 +32,7 @@ class NotesApi(
     fun tools(): String = JSONArray()
         .put(JSONObject().put("name", Jogakbo.Tools.SEARCH_NOTES).put("description", SEARCH_DESCRIPTION).put("parameters", JSONObject(SEARCH_PARAMETERS)).put("confirm", false))
         .put(JSONObject().put("name", Jogakbo.Tools.READ_NOTE).put("description", READ_DESCRIPTION).put("parameters", JSONObject(READ_PARAMETERS)).put("confirm", false))
+        .put(JSONObject().put("name", Jogakbo.Tools.SEARCH_IN_NOTE).put("description", SEARCH_IN_DESCRIPTION).put("parameters", JSONObject(SEARCH_IN_PARAMETERS)).put("confirm", false))
         .toString()
 
     fun runTool(name: String, argsJson: String): String {
@@ -39,6 +40,7 @@ class NotesApi(
         return when (name) {
             Jogakbo.Tools.SEARCH_NOTES -> runBlocking { searchNotes(args) }
             Jogakbo.Tools.READ_NOTE -> runBlocking { readNoteTool(args) }
+            Jogakbo.Tools.SEARCH_IN_NOTE -> runBlocking { searchInNote(args) }
             else -> throw JogakboErrors.encode(Jogakbo.Errors.BAD_INPUT, "unknown tool $name")
         }
     }
@@ -80,6 +82,26 @@ class NotesApi(
         return o.toString()
     }
 
+    private suspend fun searchInNote(args: JSONObject): String {
+        val id = args.optLong("note_id", -1)
+        val query = args.optString("query").trim()
+        if (id < 0) return "Error: note_id is required."
+        if (query.isEmpty()) return "Error: query is required."
+        val limit = args.optInt("limit", DEFAULT_PASSAGES).coerceIn(1, MAX_PASSAGES)
+        val n = dao.get(id) ?: return "Error: no note with note_id $id."
+        val r = search.within(n, query, limit)
+        val out = JSONArray()
+        for (h in r.hits) out.put(JSONObject().apply {
+            put("ordinal", h.passage.ordinal)
+            h.passage.title?.takeIf { it.isNotBlank() }?.let { put("section", it) }
+            if (h.passage.summary) put("part", "summary")
+            put("score", "%.2f".format(Locale.ROOT, h.score))
+            put("text", h.passage.text.trim().let { if (it.length > PASSAGE_CHARS) it.take(PASSAGE_CHARS) + "…" else it })
+        })
+        return info(n, tagNames(listOf(n.id))[n.id]).put("method", if (r.semantic) "semantic" else "words").put("total_passages", r.total).put("passages", out)
+            .also { if (r.hits.isEmpty()) it.put("note", "Nothing in this note matches; try other words or read_note.") }.toString()
+    }
+
     fun notes(ids: LongArray): String = runBlocking {
         val names = tagNames(ids.toList())
         JSONArray().apply { dao.getAll(ids.toList()).sortedBy { ids.indexOf(it.id) }.forEach { put(info(it, names[it.id])) } }.toString()
@@ -118,6 +140,19 @@ class NotesApi(
         const val MAX_TEXT = 50_000
         const val MAX_CHANGES = 500
         private const val DAY_MS = 24L * 3600 * 1000
+        const val DEFAULT_PASSAGES = 3
+        const val MAX_PASSAGES = 5
+        const val PASSAGE_CHARS = 900
+
+        const val SEARCH_IN_DESCRIPTION =
+            "Find the passages of ONE note (found with search_notes, or attached by the user) that best answer a question or match " +
+                "some words: returns the best few passages with their section (and page for documents). Use it for long notes " +
+                "instead of reading everything; read_note can then read on from the start."
+        const val SEARCH_IN_PARAMETERS = """{"type":"object","properties":{
+            "note_id":{"type":"integer","description":"The note_id from search_notes."},
+            "query":{"type":"string","description":"What to look for, as a question or a few words."},
+            "limit":{"type":"integer","description":"How many passages, 1 to 5 (default 3)."}},
+            "required":["note_id","query"]}"""
 
         const val SEARCH_DESCRIPTION =
             "Search the user's notes in Jogakbo (조각보): memos they wrote, saved web pages and YouTube videos, and recordings, " +

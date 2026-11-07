@@ -117,6 +117,9 @@ interface NoteDao {
     @Query("SELECT id, noteId, embedding FROM chunks WHERE modelId = :modelId")
     suspend fun vectors(modelId: String): List<ChunkVector>
 
+    @Query("SELECT * FROM chunks WHERE noteId = :noteId ORDER BY ordinal")
+    suspend fun chunksOf(noteId: Long): List<ChunkEntity>
+
     @Query("SELECT * FROM chunks WHERE id IN (:ids)")
     suspend fun chunks(ids: List<Long>): List<ChunkEntity>
 

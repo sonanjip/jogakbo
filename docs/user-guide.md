@@ -61,3 +61,5 @@ Notes › Search by meaning). The chips filter by kind.
 
 Malbotdari (0.2.0 or newer) can search and read your notes in a chat ("find my notes about the Jeju trip"). Its
 result cards open the note here. It is signed with the same key, so it connects without asking.
+*Ask in chat* in a note's menu opens a new chat in Malbotdari with that note attached; for a long note the chat looks up
+only the passages it needs (`search_in_note`) instead of reading everything.

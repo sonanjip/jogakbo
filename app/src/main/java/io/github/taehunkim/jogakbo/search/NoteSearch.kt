@@ -4,6 +4,7 @@ import io.github.taehunkim.jogakbo.data.db.ChunkVector
 import io.github.taehunkim.jogakbo.data.db.NoteDao
 import io.github.taehunkim.jogakbo.data.db.NoteEntity
 import io.github.taehunkim.jogakbo.data.db.NoteKind
+import io.github.taehunkim.jogakbo.index.NoteIndexer
 import io.github.taehunkim.jogakbo.ml.Quant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -71,6 +72,23 @@ class NoteSearch(private val dao: NoteDao, private val embedQuery: suspend (Stri
             val snippet = kept[id]?.second?.let { bestChunks[it]?.text } ?: keywordSnippet(n, words)
             NoteHit(n, KEYWORD_WEIGHT * kw + semScore + if (kw > 0 && sem > 0) BOTH_BONUS else 0.0, snippet(snippet), sem, kw)
         }.sortedByDescending { it.score }.take(limit)
+    }
+
+    /** What [within] found: the best passages, whether they were ranked by meaning, and how many passages the note has. */
+    class Within(val hits: List<PassageHit>, val semantic: Boolean, val total: Int)
+
+    /**
+     * The passages of one [note] closest to [query]. By meaning when the note's stored chunks are current and made by the
+     * installed embedding model; otherwise the note is cut afresh and ranked by words (a note not embedded yet still works).
+     */
+    suspend fun within(note: NoteEntity, query: String, limit: Int): Within = withContext(Dispatchers.Default) {
+        val q = runCatching { embedQuery(query.trim()) }.getOrNull()
+        val stored = dao.chunksOf(note.id)
+        val summaryCount = NoteIndexer.summaryChunkCount(note)
+        val current = q != null && stored.isNotEmpty() && (note.embeddedAt ?: 0L) >= note.updatedAt && stored.all { it.modelId == q.first }
+        val passages = if (current) stored.map { Passage(it.ordinal, it.title, it.text, it.embedding, it.ordinal < summaryCount) }
+        else NoteIndexer.chunks(note).mapIndexed { i, p -> Passage(i, p.title, p.text, null, i < summaryCount) }
+        Within(WithinNote.rank(passages, if (current) q?.second else null, query, limit), current, passages.size)
     }
 
     private fun NoteFilter.matches(n: NoteEntity): Boolean =

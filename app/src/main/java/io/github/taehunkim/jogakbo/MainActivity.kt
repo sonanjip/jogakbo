@@ -70,12 +70,9 @@ class MainActivity : AppCompatActivity() {
                         }.getOrNull().orEmpty()
                         val audio = type.startsWith("audio/") || (type == "application/octet-stream" || type == "*/*") &&
                             name.substringAfterLast('.', "").lowercase() in setOf("mp3", "m4a", "wav", "ogg", "opus", "flac", "aac", "amr")
-                        Shared.File(uri, audio)
+                        Shared.File(uri, audio, name.ifBlank { uri.lastPathSegment ?: "File" })
                     }
-                    target.value = Target.Share(if (items.size == 1 && texts.isEmpty()) {
-                        val file = items.first()
-                        if (file.audio) Shared.Audio(file.uri) else Shared.Document(file.uri)
-                    } else Shared.Batch(items, texts))
+                    target.value = Target.Share(Shared.Batch(items, texts))
                 } else {
                     val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty()
                     val url = NoteRepository.findUrl(text)

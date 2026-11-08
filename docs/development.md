@@ -25,3 +25,5 @@
   `NoteIndexer.NOTE_VERSION`.
 
 Share and image coverage includes selected-text navigation and stream deduplication in NavigationTest, image OCR in DocumentTest, and original-image backup in NotesTest. Run instrumentation on an emulator or device after building; OCR tests use a fake engine.
+
+ShareCopyTest covers streaming limits without Android; NavigationTest covers exclusion and the ten-item selection limit. Image backup tests cover retaining and omitting originals.

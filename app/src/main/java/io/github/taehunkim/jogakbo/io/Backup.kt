@@ -165,7 +165,7 @@ class Backup(
             id = existing?.id ?: 0, uuid = uuid, kind = p.kind, title = p.title, body = p.body,
             summary = p.summary, summaryEdited = p.summaryEdited, summaryPrompt = p.summaryPrompt,
             summaryState = if (p.summary != null) JobState.DONE else JobState.NONE,
-            sourceUrl = p.sourceUrl, sourceMeta = if (p.kind == io.github.taehunkim.jogakbo.data.db.NoteKind.DOCUMENT) docMeta.toString() else p.sourceMeta, sourceState = if (p.sourceUrl != null || audioName != null) JobState.DONE else JobState.NONE,
+            sourceUrl = p.sourceUrl, sourceMeta = if (p.kind == io.github.taehunkim.jogakbo.data.db.NoteKind.DOCUMENT) docMeta.toString() else p.sourceMeta, sourceState = if (p.sourceUrl != null || audioName != null || p.kind == io.github.taehunkim.jogakbo.data.db.NoteKind.DOCUMENT && p.body.isNotBlank()) JobState.DONE else JobState.NONE,
             audioFile = audioName, durationMs = p.durationMs,
             createdAt = p.createdAt ?: existing?.createdAt ?: now, updatedAt = updated,
         )

@@ -61,4 +61,6 @@ source scripts/env.sh
 
 Apache License 2.0. [LICENSE](LICENSE)와 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 참고.
 
+공유 항목은 최대 10개를 골라 가져오며 파일은 각각 100 MiB, 전체 200 MiB까지 허용합니다.
+
 공유한 텍스트는 메모로 편집할 수 있고 선택한 글자도 Android 텍스트 메뉴에서 보낼 수 있습니다. 오디오, 이미지 또는 지원하는 문서 파일을 여러 개 공유하면 각각 별도 노트로 만듭니다. 이미지는 온돌샘으로 글자를 인식하며 원본도 보관합니다.

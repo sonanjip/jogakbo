@@ -1,6 +1,8 @@
 package io.github.taehunkim.jogakbo
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -89,6 +91,40 @@ class NavigationTest {
         rule.onNodeWithTag("add_confirm").performClick()
         rule.waitUntil(10000) { runBlocking { c.db.noteDao().all().count { it.body == first || it.body == second } == 2 } }
         runBlocking { c.db.noteDao().all().filter { it.body == first || it.body == second }.forEach { c.notes.delete(it.id) } }
+    }
+
+    @Test fun sharedItemsCanBeExcludedBeforeImport() {
+        val prefix = "exclude-${System.currentTimeMillis()}"
+        rule.activityRule.scenario.onActivity { activity ->
+            val clip = android.content.ClipData.newPlainText("first", "$prefix-first").apply {
+                addItem(android.content.ClipData.Item("$prefix-second"))
+            }
+            activity.startActivity(android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_SEND_MULTIPLE)
+                .setType("text/plain").setClipData(clip).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        rule.waitUntil(5000) { rule.onAllNodes(hasTestTag("share_item_0")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("share_item_0").performClick()
+        rule.onNodeWithTag("add_confirm").performClick()
+        rule.waitUntil(10000) { runBlocking { c.db.noteDao().all().any { it.body == "$prefix-second" } } }
+        runBlocking {
+            val imported = c.db.noteDao().all().filter { it.body.startsWith(prefix) }
+            org.junit.Assert.assertEquals(listOf("$prefix-second"), imported.map { it.body })
+            imported.forEach { c.notes.delete(it.id) }
+        }
+    }
+
+    @Test fun shareRequiresAtMostTenSelectedItems() {
+        rule.activityRule.scenario.onActivity { activity ->
+            val clip = android.content.ClipData.newPlainText("one", "one").apply {
+                repeat(10) { addItem(android.content.ClipData.Item("item $it")) }
+            }
+            activity.startActivity(android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_SEND_MULTIPLE)
+                .setType("text/plain").setClipData(clip).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        rule.waitUntil(5000) { rule.onAllNodes(hasTestTag("share_item_0")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("add_confirm").assertIsNotEnabled()
+        rule.onNodeWithTag("share_item_0").performClick()
+        rule.onNodeWithTag("add_confirm").assertIsEnabled()
     }
 
     @Test fun processTextOpensMemoEditor() {

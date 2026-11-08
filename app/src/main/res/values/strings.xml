@@ -266,4 +266,5 @@
     <string name="share_multiple_title">Add %1$d items as separate notes</string>
     <string name="share_failed_count">Could not import %1$d files.</string>
     <string name="storage_originals">Stored originals: documents and images %1$s · audio %2$s</string>
+    <string name="share_limits">Choose up to 10 items. Files are limited to 100 MiB each and 200 MiB in total.</string>
 </resources>

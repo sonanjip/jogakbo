@@ -98,7 +98,7 @@ class NoteRepository(
     }
 
     /** A note from an audio file: copied into the app (for playback), then transcribed in the background. */
-    suspend fun addAudio(uri: Uri, prompt: String? = null, summarize: Boolean? = null, timing: Boolean? = null): Long {
+    suspend fun addAudio(uri: Uri, prompt: String? = null, summarize: Boolean? = null, timing: Boolean? = null, shareBudget: ShareCopyBudget? = null): Long {
         val uuid = UUID.randomUUID().toString()
         val name = displayName(uri) ?: "audio"
         val ext = name.substringAfterLast('.', "").lowercase().takeIf { it.length in 2..5 } ?: "m4a"
@@ -106,7 +106,7 @@ class NoteRepository(
         withContext(Dispatchers.IO) {
             val target = File(audioDir, fileName)
             try {
-                context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } }
+                context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { output -> if (shareBudget != null) shareBudget.copy(input, output) else input.copyTo(output) } }
                     ?: throw java.io.IOException("cannot open $uri")
             } catch (e: Exception) { target.delete(); throw e }
         }
@@ -127,7 +127,7 @@ class NoteRepository(
      * A note from a document (txt, md, PDF, docx, pptx, xlsx, odf): the file is copied into the app (so the original
      * stays openable), its text is read in the background and becomes the original of the note.
      */
-    suspend fun addDocument(uri: Uri, prompt: String? = null, summarize: Boolean? = null, timing: Boolean? = null): Long {
+    suspend fun addDocument(uri: Uri, prompt: String? = null, summarize: Boolean? = null, timing: Boolean? = null, shareBudget: ShareCopyBudget? = null): Long {
         val uuid = UUID.randomUUID().toString()
         val name = displayName(uri) ?: "document"
         val ext = Documents.extensionOf(name, context.contentResolver.getType(uri))
@@ -135,7 +135,7 @@ class NoteRepository(
         val size = withContext(Dispatchers.IO) {
             val target = File(docDir, fileName)
             try {
-                context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } }
+                context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { output -> if (shareBudget != null) shareBudget.copy(input, output) else input.copyTo(output) } }
                     ?: throw java.io.IOException("cannot open $uri")
                 target.length()
             } catch (e: Exception) { target.delete(); throw e }

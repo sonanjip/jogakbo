@@ -61,4 +61,6 @@ The backronym covers the whole name: **J**ournal **O**f **G**athered **A**udio, 
 
 Apache License 2.0, see [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+Before importing shared files, choose up to 10 items; files are limited to 100 MiB each and 200 MiB total.
+
 Shared text can be edited as a memo; selected text can be sent through Android’s text actions. Share one or several audio, image or supported document files to create separate notes. Images are read with OndolSaem OCR and the original is kept with the note.

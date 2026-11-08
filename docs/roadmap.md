@@ -47,3 +47,5 @@ with a chosen embedding time, ZIP/Markdown export and import, and the notes SDK 
 Document attachments now cover text/Markdown, PDF (text or OCR), OOXML and OpenDocument. Current limits: 400,000 extracted characters, 500 PDF pages, 400 Office units; full original is retained. Binary legacy Office/HWP and arbitrary-page image viewing from chat remain outside this implementation.
 
 Shared image originals now use the document pipeline and OndolSaem OCR. Recognition extracts text only; it does not describe image content.
+
+Shared imports accept at most 10 selected items and 100 MiB per file / 200 MiB total. Files whose copy fails are reported while other selected items can continue.

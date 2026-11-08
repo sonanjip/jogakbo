@@ -206,6 +206,19 @@ class NotesTest {
         assertTrue(JSONObject(api.runTool("search_in_note", args)).toString().contains("cobalt"))
     }
 
+    @Test fun oversizedShareLeavesNoNoteOrPartialOriginal() = runBlocking {
+        val source = File(ctx.cacheDir, "oversized-share.txt").apply { writeText("abcdef") }
+        val before = repo.docDir.listFiles().orEmpty().map { it.name }.toSet()
+        try {
+            try {
+                repo.addDocument(Uri.fromFile(source), shareBudget = io.github.taehunkim.jogakbo.notes.ShareCopyBudget(perFile = 3, total = 10))
+                org.junit.Assert.fail("Oversized share was accepted")
+            } catch (_: java.io.IOException) { }
+            assertEquals(before, repo.docDir.listFiles().orEmpty().map { it.name }.toSet())
+            assertTrue(dao.all().isEmpty())
+        } finally { source.delete() }
+    }
+
     @Test fun imageOriginalSurvivesBackup() = runBlocking {
         val file = File(repo.docDir, "backup-image.png").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
         val id = repo.createMemo("Image", "Recognized text")
@@ -216,9 +229,26 @@ class NotesTest {
         try {
             Backup(ctx, other.noteDao(), { repo.audioDir }).import(java.io.ByteArrayInputStream(zip.toByteArray()), "backup.zip")
             val restored = other.noteDao().all().first { it.uuid == dao.get(id)!!.uuid }
+            assertEquals(JobState.DONE, restored.sourceState)
             val original = File(repo.docDir, io.github.taehunkim.jogakbo.notes.Documents.fileName(restored)!!)
             assertTrue(original.readBytes().contentEquals(file.readBytes()))
             original.delete()
+        } finally { other.close(); file.delete() }
+    }
+
+    @Test fun imageBackupCanOmitOriginalButRetainOcrText() = runBlocking {
+        val file = File(repo.docDir, "omitted-image.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        val id = repo.createMemo("Image", "Recognized words")
+        dao.update(dao.get(id)!!.copy(kind = NoteKind.DOCUMENT, sourceMeta = JSONObject().put("docFile", file.name).toString()))
+        val zip = ByteArrayOutputStream()
+        Backup(ctx, dao, { repo.audioDir }).export(zip, false, true, includeDocuments = false)
+        val other = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java).build()
+        try {
+            Backup(ctx, other.noteDao(), { repo.audioDir }).import(ByteArrayInputStream(zip.toByteArray()), "backup.zip")
+            val restored = other.noteDao().all().single()
+            assertEquals("Recognized words", restored.body)
+            assertEquals(JobState.DONE, restored.sourceState)
+            assertNull(io.github.taehunkim.jogakbo.notes.Documents.fileName(restored))
         } finally { other.close(); file.delete() }
     }
 

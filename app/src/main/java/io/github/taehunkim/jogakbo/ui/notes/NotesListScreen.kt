@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -87,7 +89,7 @@ sealed interface Shared {
     data class Text(val text: String) : Shared
     data class Audio(val uri: Uri) : Shared
     data class Document(val uri: Uri) : Shared
-    data class File(val uri: Uri, val audio: Boolean)
+    data class File(val uri: Uri, val audio: Boolean, val name: String)
     data class Batch(val files: List<File>, val texts: List<String>) : Shared
 }
 
@@ -238,20 +240,41 @@ fun NotesListScreen(
         }
     }
     addBatch?.let { batch ->
-        AddDialog(title = stringResource(R.string.share_multiple_title, batch.files.size + batch.texts.size), initialUrl = null, askUrl = false,
-            defaultSummarize = autoDocument, defaultNow = defaultNow, onDismiss = { addBatch = null }) { _, prompt, summarize, timing ->
+        val total = batch.files.size + batch.texts.size
+        var selectedItems by remember(batch) { mutableStateOf((0 until total).toSet()) }
+        AddDialog(title = stringResource(R.string.share_multiple_title, total), initialUrl = null, askUrl = false,
+            defaultSummarize = autoDocument, defaultNow = defaultNow, onDismiss = { addBatch = null },
+            canAdd = selectedItems.size in 1..io.github.taehunkim.jogakbo.notes.ShareCopyBudget.ITEM_LIMIT,
+            extra = {
+                Text(stringResource(R.string.share_limits), style = MaterialTheme.typography.bodySmall)
+                Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
+                    for (index in 0 until total) {
+                        val label = if (index < batch.files.size) batch.files[index].name else batch.texts[index - batch.files.size].take(80)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(index in selectedItems, { checked ->
+                                selectedItems = if (checked) selectedItems + index else selectedItems - index
+                            }, modifier = Modifier.testTag("share_item_$index"))
+                            Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }) { _, prompt, summarize, timing ->
+            val selection = selectedItems
             addBatch = null
             scope.launch {
                 var failed = 0
-                for (text in batch.texts) {
+                val budget = io.github.taehunkim.jogakbo.notes.ShareCopyBudget()
+                for ((index, text) in batch.texts.withIndex()) {
+                    if (index + batch.files.size !in selection) continue
                     try { c.notes.createMemo("", text, summarize, prompt, timing) }
                     catch (e: kotlinx.coroutines.CancellationException) { throw e }
                     catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared text", e) }
                 }
-                for (file in batch.files) {
+                for ((index, file) in batch.files.withIndex()) {
+                    if (index !in selection) continue
                     try {
-                        if (file.audio) c.notes.addAudio(file.uri, prompt, summarize, timing)
-                        else c.notes.addDocument(file.uri, prompt, summarize, timing)
+                        if (file.audio) c.notes.addAudio(file.uri, prompt, summarize, timing, budget)
+                        else c.notes.addDocument(file.uri, prompt, summarize, timing, budget)
                     } catch (e: kotlinx.coroutines.CancellationException) { throw e }
                     catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared file", e) }
                 }
@@ -329,6 +352,7 @@ fun status(n: NoteEntity, indexWaiting: Boolean = false): Int? = when {
 @Composable
 fun AddDialog(
     title: String, initialUrl: String?, askUrl: Boolean, defaultSummarize: Boolean, defaultNow: Boolean, onDismiss: () -> Unit,
+    canAdd: Boolean = true, extra: @Composable () -> Unit = {},
     onAdd: (url: String, prompt: String?, summarize: Boolean, timing: Boolean?) -> Unit,
 ) {
     var url by remember { mutableStateOf(initialUrl.orEmpty()) }
@@ -341,6 +365,7 @@ fun AddDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                extra()
                 if (askUrl) OutlinedTextField(url, { url = it }, label = { Text(stringResource(R.string.add_link_url)) }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("add_url"))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(summarize, { summarize = it }, modifier = Modifier.testTag("add_summarize"))
@@ -357,7 +382,7 @@ fun AddDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onAdd(url.trim(), prompt.trim().ifEmpty { null }, summarize, now.takeIf { it != defaultNow }) }, enabled = !askUrl || url.isNotBlank(), modifier = Modifier.testTag("add_confirm")) {
+            TextButton(onClick = { onAdd(url.trim(), prompt.trim().ifEmpty { null }, summarize, now.takeIf { it != defaultNow }) }, enabled = canAdd && (!askUrl || url.isNotBlank()), modifier = Modifier.testTag("add_confirm")) {
                 Text(stringResource(R.string.add))
             }
         },

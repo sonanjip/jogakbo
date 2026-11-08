@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="process_text_action">Save to Jogakbo</string>
     <string name="app_name">Jogakbo</string>
     <string name="app_name_full">Jogakbo · 조각보</string>
     <string name="about_tagline">Notes, web pages, videos and recordings, each with an AI summary made on your phone. Journal Of Gathered Audio, Knowledge, Bookmarks &amp; Originals.</string>

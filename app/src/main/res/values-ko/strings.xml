@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="process_text_action">조각보에 저장하기</string>
     <string name="app_name">조각보</string>
     <string name="app_name_full">조각보 · Jogakbo</string>
     <string name="about_tagline">메모, 웹페이지, 영상, 녹음을 모으고 폰 안의 AI로 요약합니다. Journal Of Gathered Audio, Knowledge, Bookmarks &amp; Originals.</string>

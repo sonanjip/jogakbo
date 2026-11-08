@@ -154,6 +154,14 @@ class NavigationTest {
         rule.onNodeWithTag("add_confirm").assertIsEnabled()
     }
 
+    @Test fun processTextOffersDescriptiveAction() {
+        val context = rule.activity
+        val intent = android.content.Intent(android.content.Intent.ACTION_PROCESS_TEXT).setType("text/plain")
+        val entries = context.packageManager.queryIntentActivities(intent, 0)
+            .filter { it.activityInfo.packageName == context.packageName }
+        org.junit.Assert.assertTrue(entries.any { it.loadLabel(context.packageManager).toString() == context.getString(R.string.process_text_action) })
+    }
+
     @Test fun processTextOpensMemoEditor() {
         rule.activityRule.scenario.onActivity { activity ->
             val intent = android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_PROCESS_TEXT)

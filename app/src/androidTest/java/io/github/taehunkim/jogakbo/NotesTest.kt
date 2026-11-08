@@ -233,6 +233,7 @@ class NotesTest {
             val original = File(repo.docDir, io.github.taehunkim.jogakbo.notes.Documents.fileName(restored)!!)
             assertTrue(original.readBytes().contentEquals(file.readBytes()))
             original.delete()
+            Unit
         } finally { other.close(); file.delete() }
     }
 

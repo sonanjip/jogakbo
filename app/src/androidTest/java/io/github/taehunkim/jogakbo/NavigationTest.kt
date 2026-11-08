@@ -84,8 +84,17 @@ class NavigationTest {
             val clips = android.content.ClipData.newPlainText("first", first).apply {
                 addItem(android.content.ClipData.Item(second))
             }
-            activity.startActivity(android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_SEND_MULTIPLE)
-                .setType("text/plain").setClipData(clips).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            val intent = android.content.Intent(activity, MainActivity::class.java).apply {
+                action = android.content.Intent.ACTION_SEND_MULTIPLE
+                type = "text/plain"
+                clipData = clips
+                addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            // ActivityScenario matches lifecycle events against the launch intent. onNewIntent
+            // updates it, so restore it after delivery to keep teardown tracking this activity.
+            val launchIntent = activity.intent
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().callActivityOnNewIntent(activity, intent)
+            activity.intent = launchIntent
         }
         rule.waitUntil(5000) { rule.onAllNodes(hasTestTag("add_confirm")).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("add_confirm").performClick()
@@ -99,8 +108,17 @@ class NavigationTest {
             val clip = android.content.ClipData.newPlainText("first", "$prefix-first").apply {
                 addItem(android.content.ClipData.Item("$prefix-second"))
             }
-            activity.startActivity(android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_SEND_MULTIPLE)
-                .setType("text/plain").setClipData(clip).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            val intent = android.content.Intent(activity, MainActivity::class.java).apply {
+                action = android.content.Intent.ACTION_SEND_MULTIPLE
+                type = "text/plain"
+                clipData = clip
+                addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            // ActivityScenario matches lifecycle events against the launch intent. onNewIntent
+            // updates it, so restore it after delivery to keep teardown tracking this activity.
+            val launchIntent = activity.intent
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().callActivityOnNewIntent(activity, intent)
+            activity.intent = launchIntent
         }
         rule.waitUntil(5000) { rule.onAllNodes(hasTestTag("share_item_0")).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("share_item_0").performClick()
@@ -118,8 +136,17 @@ class NavigationTest {
             val clip = android.content.ClipData.newPlainText("one", "one").apply {
                 repeat(10) { addItem(android.content.ClipData.Item("item $it")) }
             }
-            activity.startActivity(android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_SEND_MULTIPLE)
-                .setType("text/plain").setClipData(clip).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            val intent = android.content.Intent(activity, MainActivity::class.java).apply {
+                action = android.content.Intent.ACTION_SEND_MULTIPLE
+                type = "text/plain"
+                clipData = clip
+                addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            // ActivityScenario matches lifecycle events against the launch intent. onNewIntent
+            // updates it, so restore it after delivery to keep teardown tracking this activity.
+            val launchIntent = activity.intent
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().callActivityOnNewIntent(activity, intent)
+            activity.intent = launchIntent
         }
         rule.waitUntil(5000) { rule.onAllNodes(hasTestTag("share_item_0")).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("add_confirm").assertIsNotEnabled()
@@ -129,7 +156,13 @@ class NavigationTest {
 
     @Test fun processTextOpensMemoEditor() {
         rule.activityRule.scenario.onActivity { activity ->
-            activity.startActivity(android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_PROCESS_TEXT).putExtra(android.content.Intent.EXTRA_PROCESS_TEXT, "Selected passage").addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            val intent = android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_PROCESS_TEXT)
+                .putExtra(android.content.Intent.EXTRA_PROCESS_TEXT, "Selected passage")
+            // ActivityScenario matches lifecycle events against the launch intent. onNewIntent
+            // updates it, so restore it after delivery to keep teardown tracking this activity.
+            val launchIntent = activity.intent
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().callActivityOnNewIntent(activity, intent)
+            activity.intent = launchIntent
         }
         rule.waitUntil(5000) { rule.onAllNodes(hasTestTag("editor_text")).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("editor_text").assertIsDisplayed()

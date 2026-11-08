@@ -89,7 +89,7 @@ sealed interface Shared {
     data class Text(val text: String) : Shared
     data class Audio(val uri: Uri) : Shared
     data class Document(val uri: Uri) : Shared
-    data class File(val uri: Uri, val audio: Boolean, val name: String, val type: String, val size: Long?, val supported: Boolean)
+    data class File(val uri: Uri, val audio: Boolean, val name: String, val type: String, val size: Long?, val supported: Boolean, val failed: Boolean = false)
     data class Batch(val files: List<File>, val texts: List<String>) : Shared
 }
 
@@ -124,6 +124,7 @@ fun NotesListScreen(
     var addDocument by remember { mutableStateOf<Uri?>(null) }
     var addBatch by remember { mutableStateOf<Shared.Batch?>(null) }
     var importingShared by remember { mutableStateOf(false) }
+    var sharedBudget by remember { mutableStateOf<io.github.taehunkim.jogakbo.notes.ShareCopyBudget?>(null) }
     androidx.activity.compose.BackHandler(enabled = importingShared) { }
     if (importingShared) {
         AlertDialog(onDismissRequest = {}, confirmButton = {},
@@ -140,7 +141,7 @@ fun NotesListScreen(
             is Shared.Link -> addLink = shared.url
             is Shared.Audio -> addAudio = shared.uri
             is Shared.Document -> addDocument = shared.uri
-            is Shared.Batch -> addBatch = shared
+            is Shared.Batch -> { sharedBudget = null; addBatch = shared }
             is Shared.Text -> onNewMemo(shared.text)
             null -> return@LaunchedEffect
         }
@@ -255,7 +256,7 @@ fun NotesListScreen(
         val validFiles = selectedFiles.all { it.supported && (it.size == null || it.size <= fileLimit) } &&
             selectedFiles.sumOf { it.size ?: 0L } <= totalLimit
         AddDialog(title = stringResource(R.string.share_multiple_title, total), initialUrl = null, askUrl = false,
-            defaultSummarize = autoDocument, defaultNow = defaultNow, onDismiss = { addBatch = null },
+            defaultSummarize = autoDocument, defaultNow = defaultNow, onDismiss = { addBatch = null; sharedBudget = null },
             canAdd = selectedItems.size in 1..io.github.taehunkim.jogakbo.notes.ShareCopyBudget.ITEM_LIMIT && validFiles,
             extra = {
                 Text(stringResource(R.string.share_limits), style = MaterialTheme.typography.bodySmall)
@@ -266,6 +267,7 @@ fun NotesListScreen(
                             val file = batch.files[index]
                             val size = file.size?.let { android.text.format.Formatter.formatFileSize(ctx, it) } ?: stringResource(R.string.share_size_unknown)
                             val reason = when {
+                                file.failed -> stringResource(R.string.share_copy_failed)
                                 !file.supported -> stringResource(R.string.share_unsupported)
                                 file.size != null && file.size > fileLimit -> stringResource(R.string.share_file_too_large)
                                 else -> null
@@ -287,12 +289,14 @@ fun NotesListScreen(
             scope.launch {
                 try {
                     var failed = 0
-                    val budget = io.github.taehunkim.jogakbo.notes.ShareCopyBudget()
+                    val failedFiles = mutableListOf<Shared.File>()
+                    val failedTexts = mutableListOf<String>()
+                    val budget = sharedBudget ?: io.github.taehunkim.jogakbo.notes.ShareCopyBudget().also { sharedBudget = it }
                     for ((index, text) in batch.texts.withIndex()) {
                         if (index + batch.files.size !in selection) continue
                         try { c.notes.createMemo("", text, summarize, prompt, timing) }
                         catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                        catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared text", e) }
+                        catch (e: Exception) { failed++; failedTexts += text; android.util.Log.w("Jogakbo", "Cannot import shared text", e) }
                     }
                     for ((index, file) in batch.files.withIndex()) {
                         if (index !in selection) continue
@@ -300,9 +304,12 @@ fun NotesListScreen(
                             if (file.audio) c.notes.addAudio(file.uri, prompt, summarize, timing, budget)
                             else c.notes.addDocument(file.uri, prompt, summarize, timing, budget)
                         } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                        catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared file", e) }
+                        catch (e: Exception) { failed++; failedFiles += file.copy(failed = true); android.util.Log.w("Jogakbo", "Cannot import shared file", e) }
                     }
-                    if (failed > 0) android.widget.Toast.makeText(ctx, res.getString(R.string.share_failed_count, failed), android.widget.Toast.LENGTH_LONG).show()
+                    if (failed > 0) {
+                        onMain { android.widget.Toast.makeText(ctx, res.getString(R.string.share_failed_count, failed), android.widget.Toast.LENGTH_LONG).show() }
+                        addBatch = Shared.Batch(failedFiles, failedTexts)
+                    } else sharedBudget = null
                 } finally { importingShared = false }
             }
         }

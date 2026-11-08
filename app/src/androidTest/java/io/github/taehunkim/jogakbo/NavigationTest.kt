@@ -121,6 +121,29 @@ class NavigationTest {
         runBlocking { c.db.noteDao().all().filter { it.body == description }.forEach { c.notes.delete(it.id) } }
     }
 
+    @Test fun failedSharedFileCanBeRetriedWithoutRepeatingSuccessfulText() {
+        val description = "retry-description-${System.currentTimeMillis()}"
+        rule.activityRule.scenario.onActivity { activity ->
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(android.content.Intent.EXTRA_TEXT, description)
+                putExtra(android.content.Intent.EXTRA_STREAM, android.net.Uri.parse("content://missing.example/photo.png"))
+            }
+            val launchIntent = activity.intent
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().callActivityOnNewIntent(activity, intent)
+            activity.intent = launchIntent
+        }
+        rule.waitUntil(5000) { rule.onAllNodes(hasTestTag("share_item_1")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("add_confirm").performClick()
+        rule.waitUntil(10000) { runBlocking { c.db.noteDao().all().any { it.body == description } } &&
+            rule.onAllNodes(hasTestTag("share_item_0")).fetchSemanticsNodes().isNotEmpty() }
+        org.junit.Assert.assertEquals(1, runBlocking { c.db.noteDao().all().count { it.body == description } })
+        rule.onNodeWithTag("add_confirm").performClick()
+        rule.waitUntil(10000) { rule.onAllNodes(hasTestTag("share_item_0")).fetchSemanticsNodes().isNotEmpty() }
+        org.junit.Assert.assertEquals(1, runBlocking { c.db.noteDao().all().count { it.body == description } })
+        runBlocking { c.db.noteDao().all().filter { it.body == description }.forEach { c.notes.delete(it.id) } }
+    }
+
     @Test fun sharedItemsCanBeExcludedBeforeImport() {
         val prefix = "exclude-${System.currentTimeMillis()}"
         rule.activityRule.scenario.onActivity { activity ->
@@ -190,7 +213,7 @@ class NavigationTest {
                 .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED)
                 .filterIsInstance<ShareActivity>().single().finish()
         }
-        rule.waitUntil(5000) { rule.onAllNodes(hasText("Original draft stays", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5000) { runCatching { rule.onAllNodes(hasText("Original draft stays", substring = true)).fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false) }
     }
 
     @Test fun processTextOffersDescriptiveAction() {

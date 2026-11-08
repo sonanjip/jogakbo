@@ -5,7 +5,7 @@ plugins {
 }
 
 // Single place to bump the app version: major.minor.patch, versionCode = major*10000 + minor*100 + patch.
-val appVersionName = "0.5.0"
+val appVersionName = "0.6.0"
 val appVersionCode = appVersionName.split(".").let { (a, b, c) -> a.toInt() * 10000 + b.toInt() * 100 + c.toInt() }
 
 android {
@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.documentfile)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     // Room reads its schema bundle with kotlinx.serialization; an older runtime pulled in transitively breaks migration tests.

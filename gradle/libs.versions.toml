@@ -15,6 +15,7 @@ jsoup = "1.24.1"
 pdfbox = "2.0.27.0"
 coroutines = "1.11.0"
 commonmark = "0.32.0"
+documentfile = "1.0.1"
 serialization = "1.12.0"
 junit = "4.13.2"
 androidxTestExt = "1.3.0"
@@ -39,6 +40,7 @@ androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref
 androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 ondolsaem-sdk = { module = "com.github.sonanjip:ondolsaem", version.ref = "ondolsaemSdk" }
 commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
 commonmark-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }

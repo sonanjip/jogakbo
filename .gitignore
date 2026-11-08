@@ -22,6 +22,5 @@
 /app/src/main/assets/licenses.txt
 
 # Local Claude Code state
-.claude/settings.local.json
-.claude/settings.json
+.claude/
 .codex/

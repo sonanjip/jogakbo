@@ -74,9 +74,11 @@ class Summarizer(private val model: TextModel) {
         const val MAX_CALLS = 256
         const val RETRIES = 3
 
-        /** Drops a code fence around the whole answer and the model's own lead-ins. */
+        /** Drops a code fence around the whole answer, reasoning blocks, and the model's own lead-ins. */
         fun clean(s: String): String {
             var t = s.trim()
+            t = Regex("<think>[\\s\\S]*?</think>").replace(t, "").trim()
+            t = Regex("^<think>[\\s\\S]*$").replace(t, "").trim()
             val fence = Regex("^```[a-zA-Z]*\\s*\\n([\\s\\S]*?)\\n?```$")
             fence.find(t)?.let { t = it.groupValues[1].trim() }
             return t

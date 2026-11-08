@@ -71,6 +71,8 @@ import io.github.taehunkim.jogakbo.R
 import io.github.taehunkim.jogakbo.data.db.JobState
 import io.github.taehunkim.jogakbo.data.db.NoteEntity
 import io.github.taehunkim.jogakbo.data.db.NoteKind
+import io.github.taehunkim.jogakbo.fetch.YouTubeFetcher
+import io.github.taehunkim.jogakbo.notes.NoteRepository
 import io.github.taehunkim.jogakbo.record.RecordingService
 import io.github.taehunkim.jogakbo.rememberContainer
 import io.github.taehunkim.jogakbo.search.NoteFilter
@@ -255,14 +257,29 @@ fun NotesListScreen(
         val totalLimit = io.github.taehunkim.jogakbo.notes.ShareCopyBudget.TOTAL_LIMIT
         val validFiles = selectedFiles.all { it.supported && (it.size == null || it.size <= fileLimit) } &&
             selectedFiles.sumOf { it.size ?: 0L } <= totalLimit
+        val hasLink = batch.texts.any { t -> NoteRepository.findUrl(t)?.let { t.trim().length - it.length < 200 } == true }
+        val defaultSummarize = if (hasLink) autoLink else if (batch.files.any { it.audio }) autoAudio else autoDocument
         AddDialog(title = stringResource(R.string.share_multiple_title, total), initialUrl = null, askUrl = false,
-            defaultSummarize = autoDocument, defaultNow = defaultNow, onDismiss = { addBatch = null; sharedBudget = null },
+            defaultSummarize = defaultSummarize, defaultNow = defaultNow, onDismiss = { addBatch = null; sharedBudget = null },
             canAdd = selectedItems.size in 1..io.github.taehunkim.jogakbo.notes.ShareCopyBudget.ITEM_LIMIT && validFiles,
             extra = {
                 Text(stringResource(R.string.share_limits), style = MaterialTheme.typography.bodySmall)
                 if (selectedFiles.sumOf { it.size ?: 0L } > totalLimit) Text(stringResource(R.string.share_total_too_large), color = MaterialTheme.colorScheme.error)
                 Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
                     for (index in 0 until total) {
+                        val icon = if (index < batch.files.size) {
+                            val file = batch.files[index]
+                            if (file.audio) kindIcon(NoteKind.AUDIO)
+                            else if (file.type.startsWith("image/") || file.name.substringAfterLast('.', "").lowercase() in io.github.taehunkim.jogakbo.notes.Documents.IMAGE_EXTENSIONS) kindIcon(NoteKind.IMAGE)
+                            else kindIcon(NoteKind.DOCUMENT)
+                        } else {
+                            val text = batch.texts[index - batch.files.size]
+                            val url = NoteRepository.findUrl(text)
+                            if (url != null && text.trim().length - url.length < 200) {
+                                if (YouTubeFetcher.isYouTube(url)) kindIcon(NoteKind.YOUTUBE)
+                                else kindIcon(NoteKind.LINK)
+                            } else kindIcon(NoteKind.MEMO)
+                        }
                         val label = if (index < batch.files.size) {
                             val file = batch.files[index]
                             val size = file.size?.let { android.text.format.Formatter.formatFileSize(ctx, it) } ?: stringResource(R.string.share_size_unknown)
@@ -278,6 +295,7 @@ fun NotesListScreen(
                             Checkbox(index in selectedItems, { checked ->
                                 selectedItems = if (checked) selectedItems + index else selectedItems - index
                             }, modifier = Modifier.testTag("share_item_$index"))
+                            Icon(icon, null, modifier = Modifier.size(18.dp).padding(end = 6.dp), tint = MaterialTheme.colorScheme.primary)
                             Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -294,7 +312,14 @@ fun NotesListScreen(
                     val budget = sharedBudget ?: io.github.taehunkim.jogakbo.notes.ShareCopyBudget().also { sharedBudget = it }
                     for ((index, text) in batch.texts.withIndex()) {
                         if (index + batch.files.size !in selection) continue
-                        try { c.notes.createMemo("", text, summarize, prompt, timing) }
+                        try {
+                            val url = NoteRepository.findUrl(text)
+                            if (url != null && text.trim().length - url.length < 200) {
+                                c.notes.addLink(url, prompt = prompt, summarize = summarize, timing = timing)
+                            } else {
+                                c.notes.createMemo("", text, summarize = summarize, prompt = prompt, timing = timing)
+                            }
+                        }
                         catch (e: kotlinx.coroutines.CancellationException) { throw e }
                         catch (e: Exception) { failed++; failedTexts += text; android.util.Log.w("Jogakbo", "Cannot import shared text", e) }
                     }

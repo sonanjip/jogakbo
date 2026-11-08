@@ -22,6 +22,7 @@ object Notifications {
     const val ID_RECORDING = 1001
     const val ID_EMBED = 1002
     const val ID_APPROVAL = 1003
+    const val ID_BACKUP = 1004
     private const val ID_JOB_BASE = 10000
     const val EXTRA_NOTE = "noteId"
 
@@ -84,6 +85,22 @@ object Notifications {
             .setContentIntent(open)
             .build()
         notify(ctx, ID_APPROVAL, n)
+    }
+
+    fun backupDone(ctx: Context, filename: String) {
+        ensureChannels(ctx)
+        val open = PendingIntent.getActivity(
+            ctx, 2, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = NotificationCompat.Builder(ctx, CH_JOBS)
+            .setSmallIcon(R.drawable.ic_stat_note)
+            .setContentTitle(ctx.getString(R.string.auto_backup_notification_title))
+            .setContentText(ctx.getString(R.string.auto_backup_notification_text, filename))
+            .setAutoCancel(true)
+            .setContentIntent(open)
+            .build()
+        notify(ctx, ID_BACKUP, n)
     }
 
     fun foregroundInfo(id: Int, n: Notification) = ForegroundInfo(id, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)

@@ -113,4 +113,11 @@ class SummarizerTest {
         assertTrue(parts.all { Tokens.estimate(it) <= 300 })
         assertEquals(1000, parts.sumOf { it.length })
     }
+
+    @Test fun cleanStripsCodeFencesAndThinking() {
+        assertEquals("Summary text", Summarizer.clean("```markdown\nSummary text\n```"))
+        assertEquals("Summary text", Summarizer.clean("<think>\nThinking about the text...\n</think>\n\nSummary text"))
+        assertEquals("", Summarizer.clean("<think>\nUnclosed thinking block"))
+        assertEquals("Gist: important topic.\n- Point 1", Summarizer.clean("<think>Analysis: ...</think>Gist: important topic.\n- Point 1"))
+    }
 }

@@ -3,6 +3,7 @@ package io.github.taehunkim.jogakbo.ui.settings
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,6 +20,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -343,11 +346,140 @@ private fun DataTab() {
         Text(stringResource(R.string.export))
     }
     HorizontalDivider()
+    AutoBackupSection(c)
+    HorizontalDivider()
     Section(R.string.settings_import, R.string.settings_import_desc)
     OutlinedButton(onClick = { importer.launch(arrayOf("application/zip", "text/markdown", "text/plain", "text/x-markdown", "application/octet-stream")) }, enabled = !busy, modifier = Modifier.testTag("import")) {
         Text(stringResource(R.string.import_notes))
     }
     result?.let { Text(it, modifier = Modifier.testTag("data_result")) }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AutoBackupSection(c: io.github.taehunkim.jogakbo.AppContainer) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val enabled by c.settings.autoBackupEnabled.collectAsStateWithLifecycle(false)
+    val minutes by c.settings.autoBackupMinutes.collectAsStateWithLifecycle(SettingsStore.DEFAULT_SCHEDULE_MINUTES)
+    val chargingOnly by c.settings.autoBackupChargingOnly.collectAsStateWithLifecycle(true)
+    val folderUri by c.settings.autoBackupFolderUri.collectAsStateWithLifecycle("")
+    val retention by c.settings.autoBackupRetention.collectAsStateWithLifecycle(SettingsStore.DEFAULT_BACKUP_RETENTION)
+    val summaries by c.settings.autoBackupIncludeSummaries.collectAsStateWithLifecycle(true)
+    val documents by c.settings.autoBackupIncludeDocuments.collectAsStateWithLifecycle(true)
+    val audio by c.settings.autoBackupIncludeAudio.collectAsStateWithLifecycle(false)
+
+    var pickTime by remember { mutableStateOf(false) }
+
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            runCatching {
+                ctx.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+            scope.launch { c.settings.setAutoBackupFolderUri(uri.toString()) }
+        }
+    }
+
+    Section(R.string.settings_auto_backup, R.string.settings_auto_backup_desc)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.auto_backup_enabled), Modifier.weight(1f))
+        Switch(
+            checked = enabled,
+            onCheckedChange = { v -> scope.launch { c.settings.setAutoBackupEnabled(v) } },
+            modifier = Modifier.testTag("auto_backup_enabled"),
+        )
+    }
+
+    if (enabled) {
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            TextButton(onClick = { pickTime = true }, modifier = Modifier.testTag("auto_backup_time")) {
+                Text(stringResource(R.string.auto_backup_at, formatMinutes(minutes)))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    chargingOnly,
+                    { v -> scope.launch { c.settings.setAutoBackupChargingOnly(v) } },
+                    modifier = Modifier.testTag("auto_backup_charging_only"),
+                )
+                Text(stringResource(R.string.auto_backup_charging_only))
+            }
+
+            // folder
+            val folderName = remember(folderUri) {
+                if (folderUri.isNotBlank()) {
+                    val doc = runCatching { DocumentFile.fromTreeUri(ctx, Uri.parse(folderUri)) }.getOrNull()
+                    doc?.name ?: folderUri
+                } else null
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.auto_backup_folder), style = MaterialTheme.typography.titleSmall)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        folderName ?: stringResource(R.string.auto_backup_folder_default),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedButton(onClick = { folderPicker.launch(null) }, modifier = Modifier.testTag("auto_backup_folder_picker")) {
+                        Text(stringResource(R.string.auto_backup_folder_change))
+                    }
+                    if (folderUri.isNotBlank()) {
+                        IconButton(onClick = { scope.launch { c.settings.setAutoBackupFolderUri("") } }) {
+                            Icon(Icons.Filled.Close, stringResource(R.string.auto_backup_folder_reset))
+                        }
+                    }
+                }
+            }
+
+            // retention
+            Text(stringResource(R.string.auto_backup_retention), style = MaterialTheme.typography.titleSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(3, 7, 14, 30).forEach { count ->
+                    FilterChip(
+                        selected = retention == count,
+                        onClick = { scope.launch { c.settings.setAutoBackupRetention(count) } },
+                        label = { Text(stringResource(R.string.auto_backup_retention_format, count)) },
+                        modifier = Modifier.testTag("auto_backup_retention_$count"),
+                    )
+                }
+            }
+
+            // content checkboxes
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(summaries, { v -> scope.launch { c.settings.setAutoBackupIncludeSummaries(v) } })
+                Text(stringResource(R.string.export_summaries))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(documents, { v -> scope.launch { c.settings.setAutoBackupIncludeDocuments(v) } })
+                Text(stringResource(R.string.export_documents))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(audio, { v -> scope.launch { c.settings.setAutoBackupIncludeAudio(v) } })
+                Text(stringResource(R.string.export_audio))
+            }
+
+            OutlinedButton(onClick = { c.backupScheduler.runNow() }, modifier = Modifier.testTag("auto_backup_now")) {
+                Text(stringResource(R.string.auto_backup_now))
+            }
+        }
+    }
+
+    if (pickTime) {
+        val state = rememberTimePickerState(minutes / 60, minutes % 60)
+        AlertDialog(
+            onDismissRequest = { pickTime = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickTime = false
+                    scope.launch { c.settings.setAutoBackupMinutes(state.hour * 60 + state.minute) }
+                }) { Text(stringResource(R.string.action_save)) }
+            },
+            dismissButton = { TextButton(onClick = { pickTime = false }) { Text(stringResource(R.string.action_cancel)) } },
+            text = { TimePicker(state) },
+        )
+    }
 }
 
 @Composable

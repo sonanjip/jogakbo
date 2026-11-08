@@ -32,6 +32,14 @@ class SettingsStore(private val context: Context) {
     private val kDecisionModel = stringPreferencesKey("decision_model_id")
     private val kAutoTag = booleanPreferencesKey("auto_tag")
     private val kTagsSeeded = booleanPreferencesKey("tags_seeded")
+    private val kAutoBackup = booleanPreferencesKey("auto_backup_enabled")
+    private val kAutoBackupMinutes = intPreferencesKey("auto_backup_minutes")
+    private val kAutoBackupChargingOnly = booleanPreferencesKey("auto_backup_charging_only")
+    private val kAutoBackupFolderUri = stringPreferencesKey("auto_backup_folder_uri")
+    private val kAutoBackupRetention = intPreferencesKey("auto_backup_retention")
+    private val kAutoBackupSummaries = booleanPreferencesKey("auto_backup_include_summaries")
+    private val kAutoBackupDocuments = booleanPreferencesKey("auto_backup_include_documents")
+    private val kAutoBackupAudio = booleanPreferencesKey("auto_backup_include_audio")
     private fun kAuto(kind: NoteKind) = booleanPreferencesKey("auto_summary_${kind.wire}")
 
     val embedMode: Flow<EmbedMode> = context.dataStore.data.map { p -> p[kEmbedMode]?.let { runCatching { EmbedMode.valueOf(it) }.getOrNull() } ?: EmbedMode.IMMEDIATE }
@@ -82,8 +90,36 @@ class SettingsStore(private val context: Context) {
     val tagsSeeded: Flow<Boolean> = context.dataStore.data.map { it[kTagsSeeded] ?: false }
     suspend fun setTagsSeeded() { context.dataStore.edit { it[kTagsSeeded] = true } }
 
+    /** Daily automatic backup to a ZIP file. */
+    val autoBackupEnabled: Flow<Boolean> = context.dataStore.data.map { it[kAutoBackup] ?: false }
+    suspend fun setAutoBackupEnabled(on: Boolean) { context.dataStore.edit { it[kAutoBackup] = on } }
+
+    val autoBackupMinutes: Flow<Int> = context.dataStore.data.map { it[kAutoBackupMinutes] ?: DEFAULT_SCHEDULE_MINUTES }
+    suspend fun setAutoBackupMinutes(m: Int) { context.dataStore.edit { it[kAutoBackupMinutes] = m.coerceIn(0, 24 * 60 - 1) } }
+
+    val autoBackupChargingOnly: Flow<Boolean> = context.dataStore.data.map { it[kAutoBackupChargingOnly] ?: true }
+    suspend fun setAutoBackupChargingOnly(on: Boolean) { context.dataStore.edit { it[kAutoBackupChargingOnly] = on } }
+
+    /** Directory tree URI chosen by the user (SAF); empty uses app external files directory. */
+    val autoBackupFolderUri: Flow<String> = context.dataStore.data.map { it[kAutoBackupFolderUri] ?: "" }
+    suspend fun setAutoBackupFolderUri(uri: String) { context.dataStore.edit { it[kAutoBackupFolderUri] = uri } }
+
+    /** Maximum number of auto-backup ZIP files kept before older ones are deleted. */
+    val autoBackupRetention: Flow<Int> = context.dataStore.data.map { it[kAutoBackupRetention] ?: DEFAULT_BACKUP_RETENTION }
+    suspend fun setAutoBackupRetention(count: Int) { context.dataStore.edit { it[kAutoBackupRetention] = count.coerceIn(1, 100) } }
+
+    val autoBackupIncludeSummaries: Flow<Boolean> = context.dataStore.data.map { it[kAutoBackupSummaries] ?: true }
+    suspend fun setAutoBackupIncludeSummaries(on: Boolean) { context.dataStore.edit { it[kAutoBackupSummaries] = on } }
+
+    val autoBackupIncludeDocuments: Flow<Boolean> = context.dataStore.data.map { it[kAutoBackupDocuments] ?: true }
+    suspend fun setAutoBackupIncludeDocuments(on: Boolean) { context.dataStore.edit { it[kAutoBackupDocuments] = on } }
+
+    val autoBackupIncludeAudio: Flow<Boolean> = context.dataStore.data.map { it[kAutoBackupAudio] ?: false }
+    suspend fun setAutoBackupIncludeAudio(on: Boolean) { context.dataStore.edit { it[kAutoBackupAudio] = on } }
+
     companion object {
         const val DEFAULT_SCHEDULE_MINUTES = 180
+        const val DEFAULT_BACKUP_RETENTION = 7
         const val MAX_PROMPT = 2000
     }
 }

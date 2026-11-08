@@ -13,6 +13,7 @@ import io.github.taehunkim.jogakbo.data.prefs.SettingsStore
 import io.github.taehunkim.jogakbo.fetch.UrlConnectionHttp
 import io.github.taehunkim.jogakbo.index.EmbedScheduler
 import io.github.taehunkim.jogakbo.index.NoteIndexer
+import io.github.taehunkim.jogakbo.io.AutoBackupScheduler
 import io.github.taehunkim.jogakbo.io.Backup
 import io.github.taehunkim.jogakbo.jobs.SourceJob
 import io.github.taehunkim.jogakbo.jobs.SummaryJob
@@ -52,6 +53,7 @@ class AppContainer(val context: Context) {
     val tags by lazy { io.github.taehunkim.jogakbo.tags.TagRepository(db.tagDao(), onTagsChanged = { embedScheduler.onNoteChanged() }) }
     val search by lazy { NoteSearch(db.noteDao()) { q -> models.embedder()?.use { it.value.modelId to it.value.embedQuery(q) } } }
     val backup by lazy { Backup(context, db.noteDao(), { notes.audioDir }, onImported = { embedScheduler.onNoteChanged() }, tags = db.tagDao()) }
+    val backupScheduler by lazy { AutoBackupScheduler(context, settings, appScope) }
     val approvals by lazy { Approvals({ settings.apiApprovalsJson.first() }, settings::setApiApprovalsJson, appScope) }
     val callerCheck by lazy {
         CallerCheck(context, approvals).apply { onRequest = { pkg -> Notifications.approvalRequest(context, appLabel(pkg)) } }
@@ -73,6 +75,7 @@ class JogakboApp : Application() {
         container = AppContainer(this)
         Notifications.ensureChannels(this)
         container.embedScheduler.start()
+        container.backupScheduler.start()
         // exact screen-off times for "When idle" while the app runs (OndolSaem SDK's IdleState)
         io.github.taehunkim.ondolsaem.sdk.IdleState(this).watchScreen()
         container.appScope.launch {

@@ -54,15 +54,15 @@ open class MainActivity : AppCompatActivity() {
             }
             Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> {
                 val streams = sharedStreams(intent)
-                val texts = if (intent.action == Intent.ACTION_SEND_MULTIPLE) intent.clipData?.let { clip ->
+                val texts = intent.clipData?.let { clip ->
                     (0 until clip.itemCount).mapNotNull { i ->
                         val item = clip.getItemAt(i)
                         if (item.uri == null) item.text?.toString()?.takeIf { it.isNotBlank() } else null
                     }
-                }.orEmpty() else emptyList()
+                }.orEmpty()
                 val description = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }
                 val batchTexts = (texts + listOfNotNull(description)).distinct()
-                if (streams.isNotEmpty() || texts.isNotEmpty()) {
+                if (streams.isNotEmpty() || batchTexts.size > 1) {
                     val items = streams.map { uri ->
                         val type = runCatching { contentResolver.getType(uri) }.getOrNull() ?: intent.type.orEmpty()
                         val name = runCatching {
@@ -84,7 +84,7 @@ open class MainActivity : AppCompatActivity() {
                     }
                     target.value = Target.Share(Shared.Batch(items, batchTexts))
                 } else {
-                    val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty()
+                    val text = batchTexts.firstOrNull() ?: intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty()
                     val url = NoteRepository.findUrl(text)
                     target.value = Target.Share(when {
                         url != null && text.trim().length - url.length < 200 -> Shared.Link(url)

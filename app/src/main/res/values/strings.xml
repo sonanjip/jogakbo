@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="share_copying">Copying shared files…</string>
     <string name="share_total_too_large">Selected files exceed 200 MiB in total.</string>
     <string name="share_size_unknown">Size unknown</string>
     <string name="share_unsupported">Unsupported file type</string>

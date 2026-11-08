@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="share_copying">공유한 파일을 복사하고 있습니다…</string>
     <string name="share_total_too_large">선택한 파일의 합계가 200 MiB를 초과합니다.</string>
     <string name="share_size_unknown">크기 알 수 없음</string>
     <string name="share_unsupported">지원하지 않는 파일 형식</string>

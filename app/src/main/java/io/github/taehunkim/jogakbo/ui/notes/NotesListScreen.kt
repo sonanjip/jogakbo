@@ -123,6 +123,13 @@ fun NotesListScreen(
     var addAudio by remember { mutableStateOf<Uri?>(null) }
     var addDocument by remember { mutableStateOf<Uri?>(null) }
     var addBatch by remember { mutableStateOf<Shared.Batch?>(null) }
+    var importingShared by remember { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = importingShared) { }
+    if (importingShared) {
+        AlertDialog(onDismissRequest = {}, confirmButton = {},
+            title = { Text(stringResource(R.string.share_copying)) },
+            text = { LinearProgressIndicator(Modifier.fillMaxWidth().testTag("share_copy_progress")) })
+    }
     val autoLink by c.settings.autoSummary(NoteKind.LINK).collectAsStateWithLifecycle(true)
     val autoAudio by c.settings.autoSummary(NoteKind.AUDIO).collectAsStateWithLifecycle(true)
     val autoDocument by c.settings.autoSummary(NoteKind.DOCUMENT).collectAsStateWithLifecycle(true)
@@ -276,24 +283,27 @@ fun NotesListScreen(
             }) { _, prompt, summarize, timing ->
             val selection = selectedItems
             addBatch = null
+            importingShared = true
             scope.launch {
-                var failed = 0
-                val budget = io.github.taehunkim.jogakbo.notes.ShareCopyBudget()
-                for ((index, text) in batch.texts.withIndex()) {
-                    if (index + batch.files.size !in selection) continue
-                    try { c.notes.createMemo("", text, summarize, prompt, timing) }
-                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                    catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared text", e) }
-                }
-                for ((index, file) in batch.files.withIndex()) {
-                    if (index !in selection) continue
-                    try {
-                        if (file.audio) c.notes.addAudio(file.uri, prompt, summarize, timing, budget)
-                        else c.notes.addDocument(file.uri, prompt, summarize, timing, budget)
-                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                    catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared file", e) }
-                }
-                if (failed > 0) android.widget.Toast.makeText(ctx, res.getString(R.string.share_failed_count, failed), android.widget.Toast.LENGTH_LONG).show()
+                try {
+                    var failed = 0
+                    val budget = io.github.taehunkim.jogakbo.notes.ShareCopyBudget()
+                    for ((index, text) in batch.texts.withIndex()) {
+                        if (index + batch.files.size !in selection) continue
+                        try { c.notes.createMemo("", text, summarize, prompt, timing) }
+                        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                        catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared text", e) }
+                    }
+                    for ((index, file) in batch.files.withIndex()) {
+                        if (index !in selection) continue
+                        try {
+                            if (file.audio) c.notes.addAudio(file.uri, prompt, summarize, timing, budget)
+                            else c.notes.addDocument(file.uri, prompt, summarize, timing, budget)
+                        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                        catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared file", e) }
+                    }
+                    if (failed > 0) android.widget.Toast.makeText(ctx, res.getString(R.string.share_failed_count, failed), android.widget.Toast.LENGTH_LONG).show()
+                } finally { importingShared = false }
             }
         }
     }

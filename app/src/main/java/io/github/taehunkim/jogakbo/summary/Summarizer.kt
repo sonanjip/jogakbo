@@ -13,6 +13,17 @@ class Summarizer(private val model: TextModel) {
     fun interface Progress { fun update(done: Int, total: Int) }
 
     suspend fun summarize(req: SummaryRequest, progress: Progress = Progress { _, _ -> }): String {
+        var calls = 0
+        val counted = object : TextModel by model {
+            override suspend fun generate(system: String, user: String, onToken: (String) -> Unit): String {
+                check(++calls <= MAX_CALLS) { "Document summary reached the safety limit of $MAX_CALLS calls. Summarize smaller sections separately." }
+                return model.generate(system, user, onToken)
+            }
+        }
+        return Summarizer(counted).summarizeCounted(req, progress)
+    }
+
+    private suspend fun summarizeCounted(req: SummaryRequest, progress: Progress): String {
         var shrink = 1.0
         repeat(RETRIES) {
             try { return run(req, shrink, progress) } catch (e: Exception) {
@@ -33,11 +44,12 @@ class Summarizer(private val model: TextModel) {
     private suspend fun run(req: SummaryRequest, shrink: Double, progress: Progress, depth: Int = 0, partNotes: Boolean = false): String {
         val system = PromptBuilder.system(req, fromPartNotes = partNotes)
         val budget = budget(req, system, shrink)
-        if (Tokens.estimate(req.text) <= budget || depth >= MAX_DEPTH) {
-            val text = if (depth >= MAX_DEPTH) Tokens.split(req.text, budget).first() else req.text
+        if (Tokens.estimate(req.text) <= budget) {
+            val text = req.text
             progress.update(0, 1)
             return clean(model.generate(system, PromptBuilder.user(req, text))).also { progress.update(1, 1) }
         }
+        check(depth < MAX_DEPTH) { "Document summary did not shrink enough. Summarize smaller sections separately." }
         val parts = Tokens.split(req.text, budget(req, PromptBuilder.partSystem(req, 99, 99), shrink))
         val notes = ArrayList<String>()
         val labels = ArrayList<String>() // where in the document each part came from, kept through the levels
@@ -59,6 +71,7 @@ class Summarizer(private val model: TextModel) {
         const val MIN_PART_TOKENS = 300
         /** Levels of notes on notes. A 500-page document at a 4K window needs about four; the last level only cuts if it must. */
         const val MAX_DEPTH = 6
+        const val MAX_CALLS = 256
         const val RETRIES = 3
 
         /** Drops a code fence around the whole answer and the model's own lead-ins. */

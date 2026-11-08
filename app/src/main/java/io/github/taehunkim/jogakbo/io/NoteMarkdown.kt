@@ -28,6 +28,7 @@ data class ParsedNote(
     /** Tag names on the note, and those the user declined (export format 1 adds them; missing in older files). */
     val tags: List<String> = emptyList(),
     val tagsRejected: List<String> = emptyList(),
+    val docPath: String? = null,
 )
 
 /**
@@ -44,7 +45,7 @@ object NoteMarkdown {
 
     fun write(
         n: NoteEntity, zone: ZoneId, includeSummary: Boolean, audioPath: String?, cuesPath: String?,
-        tags: List<String> = emptyList(), tagsRejected: List<String> = emptyList(),
+        tags: List<String> = emptyList(), tagsRejected: List<String> = emptyList(), docPath: String? = null,
     ): String = buildString {
         append("---\n")
         field("jogakbo", FORMAT.toString())
@@ -60,6 +61,7 @@ object NoteMarkdown {
         }
         n.durationMs?.let { field("duration_ms", it.toString()) }
         n.sourceMeta?.takeIf { it.isNotBlank() && it != "{}" }?.let { field("source_meta", q(it)) }
+        docPath?.let { field("doc", q(it)) }
         audioPath?.let { field("audio", q(it)) }
         cuesPath?.let { field("cues", q(it)) }
         if (tags.isNotEmpty()) field("tags", list(tags))
@@ -137,6 +139,7 @@ object NoteMarkdown {
             cuesPath = f["cues"],
             tags = parseList(f["tags"]),
             tagsRejected = parseList(f["tags_rejected"]),
+            docPath = f["doc"],
         )
     }
 

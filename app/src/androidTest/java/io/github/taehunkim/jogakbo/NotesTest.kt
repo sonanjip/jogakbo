@@ -170,7 +170,7 @@ class NotesTest {
         assertEquals(b, search.search("chain").first().note.id) // a word
         val api = NotesApi(dao, search, "0.1.0", tags = db.tagDao())
         val tools = JSONArray(api.tools())
-        assertEquals(setOf("search_notes", "read_note"), (0 until tools.length()).map { tools.getJSONObject(it).getString("name") }.toSet())
+        assertEquals(setOf("search_notes", "read_note", "search_in_note"), (0 until tools.length()).map { tools.getJSONObject(it).getString("name") }.toSet())
         val found = JSONArray(api.runTool("search_notes", """{"query":"flat tire","kinds":"memo"}"""))
         assertEquals(b, found.getJSONObject(0).getLong("note_id"))
         val read = JSONObject(api.runTool("read_note", """{"note_id":$a}"""))
@@ -191,6 +191,34 @@ class NotesTest {
         val ch = JSONObject(api.changesSince(start, 10))
         assertEquals(a, ch.getJSONArray("ids").getLong(0))
         assertEquals(1, JSONArray(api.notes(longArrayOf(a, 999))).length())
+    }
+
+    @Test fun inNoteSearchIsScopedAndHasAnUnindexedFallback() = runBlocking {
+        val id = repo.createMemo("Report", "## Page 1\n\nThe harbour inspection is scheduled for March.\n\n## Page 2\n\nThe launch code is cobalt.")
+        repo.createMemo("Other", "The launch code is orange.")
+        val search = NoteSearch(dao) { q -> embedder.modelId to embedder.embedQuery(q) }
+        val api = NotesApi(dao, search, "test")
+        val args = JSONObject().put("note_id", id).put("query", "cobalt").toString()
+        val fallback = JSONObject(api.runTool("search_in_note", args))
+        assertTrue(fallback.toString().contains("cobalt"))
+        assertFalse(fallback.toString().contains("orange"))
+        NoteIndexer(dao, models).embedPending()
+        assertTrue(JSONObject(api.runTool("search_in_note", args)).toString().contains("cobalt"))
+    }
+
+    @Test fun documentOriginalSurvivesBackupIncludingTextFiles() = runBlocking {
+        val file = File(repo.docDir, "original-test.txt").apply { writeText("Original document text, kept with the note.") }
+        val id = repo.createMemo("Document", "Extracted text")
+        dao.update(dao.get(id)!!.copy(kind = NoteKind.DOCUMENT, sourceMeta = JSONObject().put("docFile", file.name).put("docName", "report.txt").toString()))
+        val zip = ByteArrayOutputStream()
+        Backup(ctx, dao, { repo.audioDir }).export(zip, false, true)
+        val other = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java).build()
+        try {
+            Backup(ctx, other.noteDao(), { repo.audioDir }).import(ByteArrayInputStream(zip.toByteArray()), "backup.zip")
+            val n = other.noteDao().all().single()
+            assertEquals(NoteKind.DOCUMENT, n.kind)
+            assertEquals(file.readText(), File(repo.docDir, io.github.taehunkim.jogakbo.notes.Documents.fileName(n)!!).readText())
+        } finally { other.close(); file.delete() }
     }
 
     @Test fun exportThenImport() = runBlocking {

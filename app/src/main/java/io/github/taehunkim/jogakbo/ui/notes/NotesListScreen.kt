@@ -6,6 +6,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -110,6 +112,8 @@ fun NotesListScreen(
     val tagsOf = remember(applied) { applied.groupBy({ it.noteId }, { it.name }) }
     val notesWithTag = remember(applied) { applied.groupBy({ it.tagId }, { it.noteId }).mapValues { it.value.toSet() } }
     var hits by remember { mutableStateOf<List<NoteHit>?>(null) }
+    var selected by remember { mutableStateOf(emptySet<Long>()) }
+    var askMissing by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var addLink by remember { mutableStateOf<String?>(null) }
     var addAudio by remember { mutableStateOf<Uri?>(null) }
@@ -149,8 +153,13 @@ fun NotesListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                actions = { IconButton(onClick = onSettings, modifier = Modifier.testTag("open_settings")) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) } },
+                title = { Text(if (selected.isEmpty()) stringResource(R.string.app_name) else selected.size.toString()) },
+                actions = {
+                    if (selected.isNotEmpty()) {
+                        TextButton(onClick = { if (io.github.taehunkim.jogakbo.Malbotdari.open(ctx, selected.take(10))) selected = emptySet() else askMissing = true }) { Text(stringResource(R.string.action_ask_chat)) }
+                        IconButton(onClick = { selected = emptySet() }) { Icon(Icons.Filled.Close, stringResource(R.string.action_cancel)) }
+                    }
+                    IconButton(onClick = onSettings, modifier = Modifier.testTag("open_settings")) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) } },
             )
         },
         floatingActionButton = {
@@ -201,13 +210,20 @@ fun NotesListScreen(
                 }
             } else LazyColumn(Modifier.fillMaxSize().testTag("notes_list")) {
                 items(shown, key = { it.first.id }) { (n, snippet) ->
-                    NoteRow(n, snippet, tagsOf[n.id].orEmpty(), indexWaiting = n.id in needIndex) { onOpen(n.id) }
+                    NoteRow(n, snippet, tagsOf[n.id].orEmpty(), indexWaiting = n.id in needIndex,
+                        selected = n.id in selected,
+                        onLongClick = { selected = if (n.id in selected) selected - n.id else if (selected.size < 10) selected + n.id else selected },
+                        onClick = { if (selected.isEmpty()) onOpen(n.id) else selected = if (n.id in selected) selected - n.id else if (selected.size < 10) selected + n.id else selected })
                     HorizontalDivider()
                 }
             }
         }
     }
 
+    if (askMissing) AlertDialog(onDismissRequest = { askMissing = false },
+        text = { Text(stringResource(R.string.malbot_needed)) },
+        confirmButton = { TextButton(onClick = { io.github.taehunkim.jogakbo.Malbotdari.openReleases(ctx); askMissing = false }) { Text(stringResource(R.string.malbot_get)) } },
+        dismissButton = { TextButton(onClick = { askMissing = false }) { Text(stringResource(R.string.action_cancel)) } })
     addLink?.let { initial ->
         AddDialog(
             title = stringResource(R.string.add_link), initialUrl = initial, askUrl = true,
@@ -245,13 +261,14 @@ fun NotesListScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun NoteRow(n: NoteEntity, snippet: String?, tags: List<String>, indexWaiting: Boolean = false, onClick: () -> Unit) {
+private fun NoteRow(n: NoteEntity, snippet: String?, tags: List<String>, indexWaiting: Boolean = false, selected: Boolean = false, onLongClick: () -> Unit = {}, onClick: () -> Unit) {
     val ctx = LocalContext.current
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp).testTag("note_${n.id}"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 16.dp, vertical = 12.dp).testTag("note_${n.id}"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Icon(kindIcon(n.kind), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(n.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text((if (selected) "✓ " else "") + n.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val preview = snippet ?: NoteSearch.snippet(n.summary ?: n.body)
             if (preview.isNotBlank()) Text(preview, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

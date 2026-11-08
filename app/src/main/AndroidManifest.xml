@@ -69,6 +69,10 @@
             </intent-filter>
         </activity>
 
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.documents" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/document_paths" />
+        </provider>
         <!-- The notes for other apps (Malbotdari); every call checks the caller (CallerCheck). -->
         <service
             android:name=".service.NotesService"

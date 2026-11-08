@@ -46,5 +46,5 @@ object Documents {
 
     fun meta(note: NoteEntity): JSONObject = runCatching { JSONObject(note.sourceMeta ?: "{}") }.getOrDefault(JSONObject())
 
-    fun fileName(note: NoteEntity): String? = meta(note).optString(KEY_FILE).takeIf { it.isNotEmpty() }
+    fun fileName(note: NoteEntity): String? = meta(note).optString(KEY_FILE).takeIf { it.isNotEmpty() && it != "." && it != ".." && !it.contains('/') && !it.contains('\\') }
 }

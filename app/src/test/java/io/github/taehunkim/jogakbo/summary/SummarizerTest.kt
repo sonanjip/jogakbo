@@ -76,6 +76,20 @@ class SummarizerTest {
         assertTrue(m.calls.any { it.second.contains(Regex("## Part 1 \\(Page 1 – Page \\d+\\)")) })
     }
 
+    @Test fun aNonShrinkingSummaryFailsInsteadOfDroppingTheRest() = runTest {
+        val expanding = object : TextModel {
+            override val contextTokens = 2048
+            override val modelId = "non-shrinking"
+            override suspend fun generate(system: String, user: String, onToken: (String) -> Unit) = "No compression. ".repeat(400)
+        }
+        try {
+            Summarizer(expanding).summarize(req(pages).copy(kind = NoteKind.DOCUMENT))
+            org.junit.Assert.fail("The summarizer silently discarded part of the document")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message.orEmpty().contains("safety limit") || e.message.orEmpty().contains("did not shrink"))
+        }
+    }
+
     @Test fun retriesSmallerWhenTheModelSaysTooLong() = runTest {
         val m = FakeModel(4096, tooLongAbove = 1500)
         val text = (1..120).joinToString("\n\n") { "Sentence number $it is here with words." }

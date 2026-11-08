@@ -109,6 +109,17 @@ fun NoteDetailScreen(noteId: Long, onBack: () -> Unit, onEdit: () -> Unit, onEdi
                             text = { Text(stringResource(R.string.action_ask_chat)) },
                             onClick = { menu = false; askChat = true }, modifier = Modifier.testTag("ask_chat"),
                         )
+                        if (n != null && n.kind == NoteKind.DOCUMENT && c.notes.docFile(n) != null) DropdownMenuItem(
+                            text = { Text(stringResource(R.string.open_document)) }, onClick = {
+                                menu = false
+                                val file = c.notes.docFile(n!!)
+                                if (file != null) {
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.documents", file)
+                                    val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension) ?: "application/octet-stream"
+                                    runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(uri, mime).addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+                                        .onFailure { android.widget.Toast.makeText(ctx, R.string.no_app_found, android.widget.Toast.LENGTH_SHORT).show() }
+                                }
+                            })
                         DropdownMenuItem(text = { Text(stringResource(R.string.action_share)) }, onClick = { menu = false; n?.let { shareText(ctx, it.title, NotesApi.markdown(it)) } })
                         if (n?.audioFile != null && n.sourceState != JobState.RUNNING) DropdownMenuItem(text = { Text(stringResource(R.string.action_delete_audio)) }, onClick = { menu = false; scope.launch { c.notes.deleteAudio(noteId) } })
                         DropdownMenuItem(text = { Text(stringResource(R.string.action_delete)) }, onClick = { menu = false; confirmDelete = true }, modifier = Modifier.testTag("delete_note"))

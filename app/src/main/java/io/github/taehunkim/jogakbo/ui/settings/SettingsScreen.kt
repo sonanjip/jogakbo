@@ -294,6 +294,7 @@ private fun DataTab() {
     val c = rememberContainer()
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
+    var includeDocuments by rememberSaveable { mutableStateOf(true) }
     var includeAudio by rememberSaveable { mutableStateOf(true) }
     var includeSummaries by rememberSaveable { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
@@ -303,7 +304,7 @@ private fun DataTab() {
         if (uri == null) return@rememberLauncherForActivityResult
         busy = true
         scope.launch {
-            result = runCatching { c.backup.export(uri, includeAudio, includeSummaries) }
+            result = runCatching { c.backup.export(uri, includeAudio, includeSummaries, includeDocuments) }
                 .fold({ res.getString(R.string.export_done, it.notes, it.audio) }, { res.getString(R.string.export_failed, it.message.orEmpty()) })
             busy = false
         }
@@ -321,6 +322,9 @@ private fun DataTab() {
     Section(R.string.settings_export, R.string.settings_export_desc)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(includeSummaries, { includeSummaries = it }, modifier = Modifier.testTag("export_summaries")); Text(stringResource(R.string.export_summaries))
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(includeDocuments, { includeDocuments = it }); Text(stringResource(R.string.export_documents))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(includeAudio, { includeAudio = it }, modifier = Modifier.testTag("export_audio")); Text(stringResource(R.string.export_audio))

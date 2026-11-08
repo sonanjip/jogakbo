@@ -137,3 +137,6 @@ Compose + Navigation: notes list (search, kind filters, + menu), note detail (su
 transcript, original), editor (`ui/editor/MarkdownEditor`: toolbar from `MarkdownActions`, preview with
 `ui/common/Markdown`, which renders CommonMark with GFM tables, strikethrough and task lists), recording screen,
 settings (Notes, Data, Connections, App), onboarding. Shares (`ACTION_SEND` text/URL/audio) open the add dialog.
+
+### Attached documents
+`DOCUMENT` originals are copied under `files/docs`; `sourceMeta` holds the safe basename and document metadata (no schema change). `DocumentExtractor` uses pdfbox text per page and OndolSaem OCR for pages without usable text, OOXML/ODF parsing adapted from Nunsori, or text decoding. Page/slide/sheet headings survive in chunk titles. Up to 500 PDF pages, 400 Office units and 400,000 stored characters keep Room rows below CursorWindow limits; a truncation notice is shown. Interrupted extraction is re-enqueued at startup and starts again idempotently. Summary map/reduce retains section labels, at most six reduction levels and 256 calls, failing explicitly rather than silently discarding remaining parts. Document originals can be opened with a read-only FileProvider grant and included in ZIP backups; absent originals after text-only import are not trusted from metadata.

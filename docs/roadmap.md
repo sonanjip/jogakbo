@@ -43,3 +43,5 @@ with a chosen embedding time, ZIP/Markdown export and import, and the notes SDK 
   with Gemma 4 E2B).
 - The small default language model follows simple instructions but not always formatting requests (asked for a table, it
   wrote a list).
+
+Document attachments now cover text/Markdown, PDF (text or OCR), OOXML and OpenDocument. Current limits: 400,000 extracted characters, 500 PDF pages, 400 Office units; full original is retained. Binary legacy Office/HWP and arbitrary-page image viewing from chat remain outside this implementation.

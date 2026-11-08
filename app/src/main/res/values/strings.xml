@@ -261,4 +261,6 @@
     <string name="idle_preset_normal">Normal</string>
     <string name="idle_preset_relaxed">Later</string>
     <string name="idle_preset_rule">Starts while charging once the screen has been off for %1$d min (battery 90%% or more), %2$d min (70–89%%) or %3$d min (below 70%%). Stops when you use the phone.</string>
+    <string name="export_documents">Include original document files</string>
+    <string name="open_document">Open original document</string>
 </resources>

@@ -142,7 +142,7 @@ class NotesApi(
         private const val DAY_MS = 24L * 3600 * 1000
         const val DEFAULT_PASSAGES = 3
         const val MAX_PASSAGES = 5
-        const val PASSAGE_CHARS = 900
+        const val PASSAGE_CHARS = 500
 
         const val SEARCH_IN_DESCRIPTION =
             "Find the passages of ONE note (found with search_notes, or attached by the user) that best answer a question or match " +

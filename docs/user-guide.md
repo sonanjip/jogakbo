@@ -15,7 +15,7 @@ word search and export work without OndolSaem.
   whether to summarize and add an instruction for this summary ("make a table of the prices").
 - **Record**: the transcript appears line by line while you record (it lags a few seconds). Pause and Stop are on
   the screen and in the notification; recording continues with the screen off.
-- **Document**: pick a text, Markdown, PDF, Word, PowerPoint, Excel or OpenDocument file (or share one to Jogakbo); the text is read in the background, pages without a text layer by text recognition (OndolSaem). The original file stays in the app; very long documents keep their first ~1.5 million characters. Summaries of long documents are made in parts and then combined.
+- **Document**: pick a text, Markdown, PDF, Word, PowerPoint, Excel or OpenDocument file (or share one to Jogakbo); the text is read in the background, pages without a text layer by text recognition (OndolSaem). The original file stays in the app; very long documents keep their first 400,000 characters. Summaries of long documents are made in parts and then combined.
 - **Audio file**: pick a file or share one from a recorder app; it is transcribed in the background.
 
 ## A note
@@ -64,3 +64,5 @@ Malbotdari (0.2.0 or newer) can search and read your notes in a chat ("find my n
 result cards open the note here. It is signed with the same key, so it connects without asking.
 *Ask in chat* in a note's menu opens a new chat in Malbotdari with that note attached; for a long note the chat looks up
 only the passages it needs (`search_in_note`) instead of reading everything.
+
+In a document note’s menu choose **Open original document** to open the saved file in another app. Export can include the original document files. Long-press notes in the list to select them, then choose **Ask in chat** (up to ten per chat). The detail menu also has this action. Legacy binary Office files (.doc/.xls/.ppt) and HWP are not supported. Text beyond the extraction limit stays only in the original file; summaries and search cover the extracted portion.

@@ -14,3 +14,5 @@
 - **Other apps**: apps signed with Jogakbo's key (Malbotdari) can search and read notes; any other app must be
   allowed by you in Settings › Connections. They get note text, never files.
 - **Export**: the ZIP is written where you choose with the system file picker; it is not encrypted.
+
+Opening a saved document gives the chosen viewer a temporary read grant limited to that file through FileProvider. Exported ZIPs optionally include document originals in `docs/`, with extracted text kept in the Markdown note.

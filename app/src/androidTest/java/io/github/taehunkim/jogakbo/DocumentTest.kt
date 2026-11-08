@@ -51,6 +51,20 @@ class DocumentTest {
         return File(dir, name).also { f -> f.outputStream().use { doc.writeTo(it) }; doc.close() }
     }
 
+    @Test fun aLargeKoreanDocumentStillFitsARoomRow() = runBlocking {
+        val f = File(dir, "large.txt").apply { writeText("한글 자료 내용입니다. ".repeat(70_000)) }
+        val r = extractor.extract(f, "txt")
+        assertTrue(r.truncated)
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(ctx, io.github.taehunkim.jogakbo.data.db.AppDatabase::class.java).build()
+        try {
+            val n = io.github.taehunkim.jogakbo.data.db.NoteEntity(uuid = "large-document", kind = io.github.taehunkim.jogakbo.data.db.NoteKind.DOCUMENT,
+                title = "Large", body = r.markdown, createdAt = 1, updatedAt = 1)
+            val id = db.noteDao().insert(n)
+            assertEquals(r.markdown.length, db.noteDao().get(id)!!.body.length)
+            assertEquals(1, db.noteDao().all().size)
+        } finally { db.close() }
+    }
+
     @Test fun plainTextKeepsItsText() = runBlocking {
         val f = File(dir, "notes.md").apply { writeText("# Plan\n\nBuy tickets on Friday. 회의록 정리.") }
         val r = extractor.extract(f, "md")
@@ -91,6 +105,7 @@ class DocumentTest {
         }
         val r = extractor.extract(f, "docx")
         assertTrue(r.markdown.contains("launch moves to March"))
+        assertTrue(r.markdown.contains("### Project memo"))
         assertTrue(r.markdown.startsWith("## "))
     }
 

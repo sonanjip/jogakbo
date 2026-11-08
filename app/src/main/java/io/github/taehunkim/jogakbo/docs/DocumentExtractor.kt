@@ -52,12 +52,12 @@ class DocumentExtractor(private val context: Context, private val ocr: suspend (
             ?: throw FetchException(context.getString(R.string.doc_unsupported))
         if (doc.units.isEmpty()) throw FetchException(context.getString(R.string.doc_no_text))
         val sb = StringBuilder()
-        var truncated = false
+        var truncated = doc.units.size >= OfficeParsers.MAX_UNITS
         for ((i, u) in doc.units.withIndex()) {
             currentCoroutineContext().ensureActive()
             progress(i, doc.units.size)
             sb.append("## ").append(heading(u, doc.style, i)).append("\n\n")
-            sb.append(if (u.rows != null) table(u.rows) else u.text.trim()).append("\n\n")
+            sb.append(if (u.rows != null) table(u.rows) else u.text.trim().replace(Regex("(?m)^(#{1,6}) "), "##$1 ")).append("\n\n")
             if (sb.length > MAX_BODY_CHARS) { truncated = true; break }
         }
         return ExtractedDocument(doc.title, doc.units.size, sb.toString().trim().take(MAX_BODY_CHARS), truncated, 0)
@@ -149,7 +149,8 @@ class DocumentExtractor(private val context: Context, private val ocr: suspend (
         /** Plain text files are read up to this size (as in Nunsori). */
         const val MAX_TEXT_BYTES = 25L * 1024 * 1024
         /** The stored original stops here (the list and the detail screen load whole bodies). */
-        const val MAX_BODY_CHARS = 1_500_000
+        // Room must read this row (UTF-16 body plus summary) within Android’s CursorWindow.
+        const val MAX_BODY_CHARS = 400_000
         const val MAX_ROWS = 2000
         @Volatile private var initialised = false
     }

@@ -3,6 +3,7 @@ package io.github.taehunkim.jogakbo.io
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import io.github.taehunkim.jogakbo.notes.Documents
 import io.github.taehunkim.jogakbo.data.db.CueEntity
 import io.github.taehunkim.jogakbo.data.db.JobState
 import io.github.taehunkim.jogakbo.data.db.NoteDao
@@ -42,11 +43,11 @@ class Backup(
     data class ExportResult(val notes: Int, val audio: Int)
     data class ImportResult(val added: Int, val updated: Int, val skipped: Int)
 
-    suspend fun export(uri: Uri, includeAudio: Boolean, includeSummaries: Boolean): ExportResult = withContext(Dispatchers.IO) {
-        context.contentResolver.openOutputStream(uri, "w")?.use { export(it, includeAudio, includeSummaries) } ?: throw java.io.IOException("cannot write $uri")
+    suspend fun export(uri: Uri, includeAudio: Boolean, includeSummaries: Boolean, includeDocuments: Boolean = true): ExportResult = withContext(Dispatchers.IO) {
+        context.contentResolver.openOutputStream(uri, "w")?.use { export(it, includeAudio, includeSummaries, includeDocuments) } ?: throw java.io.IOException("cannot write $uri")
     }
 
-    suspend fun export(out: OutputStream, includeAudio: Boolean, includeSummaries: Boolean): ExportResult = withContext(Dispatchers.IO) {
+    suspend fun export(out: OutputStream, includeAudio: Boolean, includeSummaries: Boolean, includeDocuments: Boolean = true): ExportResult = withContext(Dispatchers.IO) {
         var audio = 0
         val notes = dao.all()
         val tagList = tags?.tags().orEmpty()
@@ -58,6 +59,8 @@ class Backup(
             }
             val used = HashSet<String>()
             for (n in notes) {
+                val docFile = Documents.fileName(n)?.let { File(context.filesDir, "docs/$it") }?.takeIf { includeDocuments && it.isFile }
+                val docPath = docFile?.let { "docs/${n.uuid}.${it.extension}" }
                 val audioFile = n.audioFile?.let { File(audioDir(), it) }?.takeIf { includeAudio && it.exists() }
                 val audioPath = audioFile?.let { "audio/${n.uuid}.${it.extension.ifEmpty { "m4a" }}" }
                 val cues = dao.cues(n.id)
@@ -69,13 +72,17 @@ class Backup(
                 zip.write(
                     NoteMarkdown.write(
                         n, zone, includeSummaries, audioPath, cuesPath,
-                        tags = mine.filter { it.state.applied }.map { it.name }, tagsRejected = mine.filter { it.state == TagState.REJECTED }.map { it.name },
+                        docPath = docPath, tags = mine.filter { it.state.applied }.map { it.name }, tagsRejected = mine.filter { it.state == TagState.REJECTED }.map { it.name },
                     ).toByteArray(),
                 )
                 zip.closeEntry()
                 if (cuesPath != null) {
                     zip.putNextEntry(ZipEntry(cuesPath))
                     zip.write(cuesJson(cues).toByteArray()); zip.closeEntry()
+                }
+                if (docFile != null && docPath != null) {
+                    zip.putNextEntry(ZipEntry(docPath))
+                    docFile.inputStream().use { it.copyTo(zip) }; zip.closeEntry()
                 }
                 if (audioFile != null && audioPath != null) {
                     zip.putNextEntry(ZipEntry(audioPath))
@@ -121,20 +128,20 @@ class Backup(
                     val path = e.name.replace('\\', '/').trimStart('/')
                     if (e.isDirectory || path.contains("..") || path.substringAfterLast('/').startsWith(".") || path.startsWith("__MACOSX")) continue
                     val ext = path.substringAfterLast('.', "").lowercase()
-                    if (ext == "md" || ext == "markdown" || ext == "txt" || ext == "json") texts[path] = zip.readBytes().toString(Charsets.UTF_8)
+                    if (!path.startsWith("docs/") && (ext == "md" || ext == "markdown" || ext == "txt" || ext == "json")) texts[path] = zip.readBytes().toString(Charsets.UTF_8)
                     else files[path] = File(tmp, files.size.toString()).also { f -> f.outputStream().use { zip.copyTo(it) } }
                 }
             }
             texts[TAGS_FILE]?.let { importTags(it) }
             val outcomes = texts.filterKeys { !it.endsWith(".json") }.map { (path, text) ->
                 val p = NoteMarkdown.read(text, path)
-                merge(p, mapOf("cues" to p.cuesPath?.let { texts[it] }, "audio" to null), p.audioPath?.let { files[it] })
+                merge(p, mapOf("cues" to p.cuesPath?.let { texts[it] }, "audio" to null), p.audioPath?.let { files[it] }, p.docPath?.let { files[it] })
             }
             return tally(outcomes)
         } finally { tmp.deleteRecursively() }
     }
 
-    private suspend fun merge(p: ParsedNote, extra: Map<String, String?>, audio: File? = null): Outcome {
+    private suspend fun merge(p: ParsedNote, extra: Map<String, String?>, audio: File? = null, document: File? = null): Outcome {
         val now = clock()
         val existing = p.uuid?.let { dao.byUuid(it) }
         val updated = p.updatedAt ?: now
@@ -144,11 +151,21 @@ class Backup(
             val ext = p.audioPath?.substringAfterLast('.', "m4a") ?: "m4a"
             "$uuid.$ext".also { a.copyTo(File(audioDir(), it), overwrite = true) }
         } ?: existing?.audioFile
+        val docMeta = runCatching { JSONObject(p.sourceMeta ?: "{}") }.getOrDefault(JSONObject()).apply {
+            remove(Documents.KEY_FILE)
+            if (document != null) {
+                val ext = p.docPath?.substringAfterLast('.', "bin")?.takeIf { it in Documents.EXTENSIONS } ?: "bin"
+                val copiedName = "${UUID.randomUUID()}.$ext"
+                val dir = File(context.filesDir, "docs").apply { mkdirs() }
+                document.copyTo(File(dir, copiedName), overwrite = true)
+                put(Documents.KEY_FILE, copiedName)
+            } else existing?.let { Documents.fileName(it) }?.let { put(Documents.KEY_FILE, it) }
+        }
         val note = NoteEntity(
             id = existing?.id ?: 0, uuid = uuid, kind = p.kind, title = p.title, body = p.body,
             summary = p.summary, summaryEdited = p.summaryEdited, summaryPrompt = p.summaryPrompt,
             summaryState = if (p.summary != null) JobState.DONE else JobState.NONE,
-            sourceUrl = p.sourceUrl, sourceMeta = p.sourceMeta, sourceState = if (p.sourceUrl != null || audioName != null) JobState.DONE else JobState.NONE,
+            sourceUrl = p.sourceUrl, sourceMeta = if (p.kind == io.github.taehunkim.jogakbo.data.db.NoteKind.DOCUMENT) docMeta.toString() else p.sourceMeta, sourceState = if (p.sourceUrl != null || audioName != null) JobState.DONE else JobState.NONE,
             audioFile = audioName, durationMs = p.durationMs,
             createdAt = p.createdAt ?: existing?.createdAt ?: now, updatedAt = updated,
         )

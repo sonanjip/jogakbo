@@ -33,6 +33,21 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Another app (Malbotdari) opens a note -->
+            <intent-filter>
+                <action android:name="io.github.taehunkim.jogakbo.action.OPEN_NOTE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="io.github.taehunkim.jogakbo.action.APPROVE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
             <!-- Share text or files from another app -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
@@ -70,20 +85,11 @@
                 <data android:mimeType="application/vnd.oasis.opendocument.presentation" />
                 <data android:mimeType="application/vnd.oasis.opendocument.spreadsheet" />
             </intent-filter>
-            <!-- Another app (Malbotdari) opens a note -->
-            <intent-filter>
-                <action android:name="io.github.taehunkim.jogakbo.action.OPEN_NOTE" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="io.github.taehunkim.jogakbo.action.APPROVE" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
         </activity>
 
         <activity-alias
             android:name=".SaveSelectedText"
-            android:targetActivity=".MainActivity"
+            android:targetActivity=".ShareActivity"
             android:exported="true"
             android:label="@string/process_text_action">
             <intent-filter>

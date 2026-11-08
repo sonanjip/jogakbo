@@ -89,7 +89,7 @@ sealed interface Shared {
     data class Text(val text: String) : Shared
     data class Audio(val uri: Uri) : Shared
     data class Document(val uri: Uri) : Shared
-    data class File(val uri: Uri, val audio: Boolean, val name: String)
+    data class File(val uri: Uri, val audio: Boolean, val name: String, val type: String, val size: Long?, val supported: Boolean)
     data class Batch(val files: List<File>, val texts: List<String>) : Shared
 }
 
@@ -242,14 +242,29 @@ fun NotesListScreen(
     addBatch?.let { batch ->
         val total = batch.files.size + batch.texts.size
         var selectedItems by remember(batch) { mutableStateOf((0 until total).toSet()) }
+        val selectedFiles = batch.files.filterIndexed { index, _ -> index in selectedItems }
+        val fileLimit = io.github.taehunkim.jogakbo.notes.ShareCopyBudget.FILE_LIMIT
+        val totalLimit = io.github.taehunkim.jogakbo.notes.ShareCopyBudget.TOTAL_LIMIT
+        val validFiles = selectedFiles.all { it.supported && (it.size == null || it.size <= fileLimit) } &&
+            selectedFiles.sumOf { it.size ?: 0L } <= totalLimit
         AddDialog(title = stringResource(R.string.share_multiple_title, total), initialUrl = null, askUrl = false,
             defaultSummarize = autoDocument, defaultNow = defaultNow, onDismiss = { addBatch = null },
-            canAdd = selectedItems.size in 1..io.github.taehunkim.jogakbo.notes.ShareCopyBudget.ITEM_LIMIT,
+            canAdd = selectedItems.size in 1..io.github.taehunkim.jogakbo.notes.ShareCopyBudget.ITEM_LIMIT && validFiles,
             extra = {
                 Text(stringResource(R.string.share_limits), style = MaterialTheme.typography.bodySmall)
+                if (selectedFiles.sumOf { it.size ?: 0L } > totalLimit) Text(stringResource(R.string.share_total_too_large), color = MaterialTheme.colorScheme.error)
                 Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
                     for (index in 0 until total) {
-                        val label = if (index < batch.files.size) batch.files[index].name else batch.texts[index - batch.files.size].take(80)
+                        val label = if (index < batch.files.size) {
+                            val file = batch.files[index]
+                            val size = file.size?.let { android.text.format.Formatter.formatFileSize(ctx, it) } ?: stringResource(R.string.share_size_unknown)
+                            val reason = when {
+                                !file.supported -> stringResource(R.string.share_unsupported)
+                                file.size != null && file.size > fileLimit -> stringResource(R.string.share_file_too_large)
+                                else -> null
+                            }
+                            listOfNotNull(file.name, file.type.takeIf { it.isNotBlank() }, size, reason).joinToString(" · ")
+                        } else batch.texts[index - batch.files.size].take(80)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(index in selectedItems, { checked ->
                                 selectedItems = if (checked) selectedItems + index else selectedItems - index
@@ -336,7 +351,7 @@ private fun NoteRow(n: NoteEntity, snippet: String?, tags: List<String>, indexWa
 /** A short status of the note's background work, or null when there is nothing to say. */
 fun status(n: NoteEntity, indexWaiting: Boolean = false): Int? = when {
     n.sourceState == JobState.QUEUED || n.sourceState == JobState.RUNNING ->
-        when (n.kind) { NoteKind.AUDIO -> R.string.state_transcribing; NoteKind.DOCUMENT -> R.string.state_reading_document; else -> R.string.state_fetching }
+        when (n.kind) { NoteKind.AUDIO -> R.string.state_transcribing; NoteKind.DOCUMENT, NoteKind.IMAGE -> R.string.state_reading_document; else -> R.string.state_fetching }
     n.sourceState == JobState.FAILED -> R.string.state_source_failed
     n.summaryState == JobState.QUEUED || n.summaryState == JobState.RUNNING -> R.string.state_summarizing
     n.summaryState == JobState.FAILED -> R.string.state_summary_failed

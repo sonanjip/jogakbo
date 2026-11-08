@@ -49,7 +49,6 @@ class DocumentExtractor(private val context: Context, private val ocr: suspend (
         } catch (e: IOException) { throw FetchException(context.getString(R.string.doc_unreadable)) }
         try {
             val text = ocr().use { it.value.recognize(bitmap).trim() }
-            if (text.isEmpty()) throw FetchException(context.getString(R.string.doc_no_text))
             return ExtractedDocument(null, 1, text.take(MAX_BODY_CHARS), text.length > MAX_BODY_CHARS, 1)
         } finally { bitmap.recycle() }
     }

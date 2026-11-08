@@ -15,6 +15,7 @@ object Documents {
     const val KEY_TRUNCATED = "docTruncated"
 
     /** Extensions the extractor reads (old .doc/.ppt/.xls and hwp are not supported, as in Nunsori). */
+    val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif")
     val EXTENSIONS = setOf("txt", "md", "markdown", "text", "csv", "tsv", "log", "pdf", "docx", "pptx", "xlsx", "odt", "odp", "ods", "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif")
 
     /** MIME types for the picker and for shared files. */

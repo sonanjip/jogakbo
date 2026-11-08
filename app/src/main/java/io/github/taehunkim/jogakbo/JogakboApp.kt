@@ -88,7 +88,7 @@ class JogakboApp : Application() {
             for (id in dao.pendingSources()) {
                 val n = dao.get(id) ?: continue
                 if (RecordingService.current.value?.noteId == id) continue
-                if (n.kind == io.github.taehunkim.jogakbo.data.db.NoteKind.DOCUMENT || n.sourceMeta?.contains("\"recording\":true") == true) container.jobs.fetchSource(id, n.kind)
+                if (n.kind in setOf(io.github.taehunkim.jogakbo.data.db.NoteKind.DOCUMENT, io.github.taehunkim.jogakbo.data.db.NoteKind.IMAGE) || n.sourceMeta?.contains("\"recording\":true") == true) container.jobs.fetchSource(id, n.kind)
             }
         }
         // the embedding model changed in OndolSaem: notes are embedded again

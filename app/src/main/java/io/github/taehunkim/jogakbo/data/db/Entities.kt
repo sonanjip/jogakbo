@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
 /** What a note was made from. */
 enum class NoteKind { MEMO, LINK, YOUTUBE, AUDIO,
     /** An attached document (text, PDF, Office); its original file is kept under files/docs, its text is the body. */
-    DOCUMENT;
+    DOCUMENT, IMAGE;
     /** The name used in exports and in the SDK. */
     val wire: String get() = name.lowercase()
     companion object { fun fromWire(s: String?): NoteKind? = entries.firstOrNull { it.wire == s?.lowercase() } }

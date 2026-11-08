@@ -50,7 +50,7 @@ fun kindIcon(kind: NoteKind): ImageVector = when (kind) {
     NoteKind.LINK -> Icons.Filled.Link
     NoteKind.YOUTUBE -> Icons.Filled.SmartDisplay
     NoteKind.AUDIO -> Icons.Filled.Mic
-    NoteKind.DOCUMENT -> Icons.Filled.Description
+    NoteKind.DOCUMENT, NoteKind.IMAGE -> Icons.Filled.Description
 }
 
 fun kindLabel(kind: NoteKind): Int = when (kind) {
@@ -59,6 +59,7 @@ fun kindLabel(kind: NoteKind): Int = when (kind) {
     NoteKind.YOUTUBE -> R.string.kind_youtube
     NoteKind.AUDIO -> R.string.kind_audio
     NoteKind.DOCUMENT -> R.string.kind_document
+    NoteKind.IMAGE -> R.string.kind_image
 }
 
 fun formatDate(ctx: Context, ms: Long): String =

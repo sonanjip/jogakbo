@@ -132,6 +132,7 @@ class NoteRepository(
         val name = displayName(uri) ?: "document"
         val ext = Documents.extensionOf(name, context.contentResolver.getType(uri))
         val fileName = "$uuid.$ext"
+        val kind = if (ext in Documents.IMAGE_EXTENSIONS) NoteKind.IMAGE else NoteKind.DOCUMENT
         val size = withContext(Dispatchers.IO) {
             val target = File(docDir, fileName)
             try {
@@ -145,12 +146,12 @@ class NoteRepository(
             .put(Documents.KEY_FILE, fileName).put(Documents.KEY_NAME, name).put(Documents.KEY_SIZE, size)
         val id = dao.insert(
             NoteEntity(
-                uuid = uuid, kind = NoteKind.DOCUMENT, title = name.substringBeforeLast('.').ifBlank { name }.take(MAX_TITLE),
+                uuid = uuid, kind = kind, title = name.substringBeforeLast('.').ifBlank { name }.take(MAX_TITLE),
                 summaryPrompt = prompt?.trim()?.ifEmpty { null }, sourceState = JobState.QUEUED, sourceMeta = meta.toString(),
                 createdAt = now, updatedAt = now,
             ),
         )
-        jobs.fetchSource(id, NoteKind.DOCUMENT)
+        jobs.fetchSource(id, kind)
         return id
     }
 

@@ -109,7 +109,7 @@ fun NoteDetailScreen(noteId: Long, onBack: () -> Unit, onEdit: () -> Unit, onEdi
                             text = { Text(stringResource(R.string.action_ask_chat)) },
                             onClick = { menu = false; askChat = true }, modifier = Modifier.testTag("ask_chat"),
                         )
-                        if (n != null && n.kind == NoteKind.DOCUMENT && c.notes.docFile(n) != null) DropdownMenuItem(
+                        if (n != null && n.kind in setOf(NoteKind.DOCUMENT, NoteKind.IMAGE) && c.notes.docFile(n) != null) DropdownMenuItem(
                             text = { Text(stringResource(R.string.open_document)) }, onClick = {
                                 menu = false
                                 val file = c.notes.docFile(n!!)
@@ -152,6 +152,8 @@ fun NoteDetailScreen(noteId: Long, onBack: () -> Unit, onEdit: () -> Unit, onEdi
                     Text(stringResource(R.string.video_transcript), style = MaterialTheme.typography.titleMedium)
                     CueList(cues, null) { cue -> n.sourceUrl?.let { openUrl(ctx, videoAt(it, cue.startMs)) } }
                 }
+                n.kind == NoteKind.IMAGE && n.sourceState == JobState.DONE && n.body.isBlank() ->
+                    Text(stringResource(R.string.image_no_text), modifier = Modifier.testTag("image_no_text"))
                 n.body.isNotBlank() -> {
                     if (n.kind != NoteKind.MEMO) Text(stringResource(R.string.note_original), style = MaterialTheme.typography.titleMedium)
                     // a long document is shown in slices (one huge Markdown column would stall the screen)
@@ -187,7 +189,7 @@ private fun Header(n: NoteEntity) {
             stringResource(kindLabel(n.kind)), formatDate(ctx, n.createdAt),
             meta.optString("site").ifBlank { null }, meta.optString("channel").ifBlank { null },
             n.durationMs?.let { formatDuration(it) },
-            if (n.kind == NoteKind.DOCUMENT && n.sourceState == JobState.DONE) {
+            if (n.kind in setOf(NoteKind.DOCUMENT, NoteKind.IMAGE) && n.sourceState == JobState.DONE) {
                 val name = meta.optString(io.github.taehunkim.jogakbo.notes.Documents.KEY_NAME)
                 val pages = meta.optInt(io.github.taehunkim.jogakbo.notes.Documents.KEY_PAGES)
                 val ocr = meta.optInt(io.github.taehunkim.jogakbo.notes.Documents.KEY_OCR_PAGES)
@@ -208,7 +210,7 @@ private fun Header(n: NoteEntity) {
 private fun SourceState(n: NoteEntity, onRetry: () -> Unit) {
     when (n.sourceState) {
         JobState.QUEUED, JobState.RUNNING -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(when (n.kind) { NoteKind.AUDIO -> R.string.state_transcribing; NoteKind.DOCUMENT -> R.string.state_reading_document; else -> R.string.state_fetching }), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(when (n.kind) { NoteKind.AUDIO -> R.string.state_transcribing; NoteKind.DOCUMENT, NoteKind.IMAGE -> R.string.state_reading_document; else -> R.string.state_fetching }), style = MaterialTheme.typography.bodyMedium)
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }
         JobState.FAILED -> WarningCard(stringResource(R.string.source_failed, n.sourceError.orEmpty()), Modifier.testTag("source_failed"), stringResource(R.string.action_retry), onRetry)

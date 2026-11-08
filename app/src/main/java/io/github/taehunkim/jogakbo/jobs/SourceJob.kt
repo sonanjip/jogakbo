@@ -57,7 +57,7 @@ class SourceJob(
                 NoteKind.LINK -> link(note)
                 NoteKind.YOUTUBE -> video(note)
                 NoteKind.AUDIO -> audio(note, progress)
-                NoteKind.DOCUMENT -> document(note, progress)
+                NoteKind.DOCUMENT, NoteKind.IMAGE -> document(note, progress)
                 NoteKind.MEMO -> dao.setSourceState(noteId, JobState.NONE)
             }
             afterSource(noteId)

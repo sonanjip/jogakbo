@@ -103,6 +103,18 @@ class DocumentTest {
         assertTrue(result.markdown.contains("harbour inspection"))
     }
 
+    @Test fun imageWithoutTextRemainsAValidOriginal() = runBlocking {
+        val f = File(dir, "empty-photo.png")
+        Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).let { bitmap ->
+            f.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+        }
+        val emptyOcr = object : OcrEngine { override suspend fun recognize(bitmap: Bitmap) = "" }
+        val result = DocumentExtractor(ctx) { Lease(emptyOcr) { } }.extract(f, "png")
+        assertTrue(result.markdown.isEmpty())
+        assertTrue(f.isFile)
+    }
+
     @Test fun docxBecomesPageSections() = runBlocking {
         val f = File(dir, "memo.docx")
         ZipOutputStream(f.outputStream()).use { z ->

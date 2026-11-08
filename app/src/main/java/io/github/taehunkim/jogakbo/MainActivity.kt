@@ -18,7 +18,7 @@ import io.github.taehunkim.jogakbo.ui.theme.AppTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-class MainActivity : AppCompatActivity() {
+open class MainActivity : AppCompatActivity() {
     /** Where an intent asks to go; consumed once the UI navigated there. */
     private val target = MutableStateFlow<Target?>(null)
 
@@ -60,6 +60,8 @@ class MainActivity : AppCompatActivity() {
                         if (item.uri == null) item.text?.toString()?.takeIf { it.isNotBlank() } else null
                     }
                 }.orEmpty() else emptyList()
+                val description = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() }
+                val batchTexts = (texts + listOfNotNull(description)).distinct()
                 if (streams.isNotEmpty() || texts.isNotEmpty()) {
                     val items = streams.map { uri ->
                         val type = runCatching { contentResolver.getType(uri) }.getOrNull() ?: intent.type.orEmpty()
@@ -70,9 +72,17 @@ class MainActivity : AppCompatActivity() {
                         }.getOrNull().orEmpty()
                         val audio = type.startsWith("audio/") || (type == "application/octet-stream" || type == "*/*") &&
                             name.substringAfterLast('.', "").lowercase() in setOf("mp3", "m4a", "wav", "ogg", "opus", "flac", "aac", "amr")
-                        Shared.File(uri, audio, name.ifBlank { uri.lastPathSegment ?: "File" })
+                        val size = runCatching {
+                            contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use {
+                                if (it.moveToFirst() && !it.isNull(0)) it.getLong(0).takeIf { value -> value >= 0 } else null
+                            }
+                        }.getOrNull()
+                        val ext = name.substringAfterLast('.', "").lowercase()
+                        val supported = audio || type.startsWith("image/") || (type != "application/octet-stream" && type in io.github.taehunkim.jogakbo.notes.Documents.MIME_TYPES) ||
+                            ext in io.github.taehunkim.jogakbo.notes.Documents.EXTENSIONS
+                        Shared.File(uri, audio, name.ifBlank { uri.lastPathSegment ?: "File" }, type, size, supported)
                     }
-                    target.value = Target.Share(Shared.Batch(items, texts))
+                    target.value = Target.Share(Shared.Batch(items, batchTexts))
                 } else {
                     val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty()
                     val url = NoteRepository.findUrl(text)
@@ -103,3 +113,6 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_APPROVE = "io.github.taehunkim.jogakbo.action.APPROVE"
     }
 }
+
+/** A separate activity keeps any editor already open in MainActivity intact during a share. */
+class ShareActivity : MainActivity()

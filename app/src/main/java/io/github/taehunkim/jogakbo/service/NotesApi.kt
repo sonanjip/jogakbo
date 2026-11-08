@@ -155,12 +155,12 @@ class NotesApi(
             "required":["note_id","query"]}"""
 
         const val SEARCH_DESCRIPTION =
-            "Search the user's notes in Jogakbo (조각보): memos they wrote, saved web pages and YouTube videos, recordings and attached documents (PDF, Word, text), " +
+            "Search the user's notes in Jogakbo (조각보): memos they wrote, saved web pages and YouTube videos, recordings, images and attached documents (PDF, Word, text), " +
                 "each with an AI summary. Finds notes by meaning and by words, optionally only notes with given tags. Returns note_id, title, kind, dates, url, tags and a snippet; " +
                 "use read_note for the full text."
         const val SEARCH_PARAMETERS = """{"type":"object","properties":{
             "query":{"type":"string","description":"What to look for: words or a description. Leave out to list the newest notes."},
-            "kinds":{"type":"string","description":"Optional comma separated filter: memo, link, youtube, audio, document."},
+            "kinds":{"type":"string","description":"Optional comma separated filter: memo, link, youtube, audio, document, image."},
             "tags":{"type":"string","description":"Optional comma separated tag names; only notes with any of them (for example 여행, 요리)."},
             "date_from":{"type":"string","description":"Optional: notes created on or after this date, YYYY-MM-DD."},
             "date_to":{"type":"string","description":"Optional: notes created on or before this date, YYYY-MM-DD."},

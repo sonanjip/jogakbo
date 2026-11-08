@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="share_total_too_large">Selected files exceed 200 MiB in total.</string>
+    <string name="share_size_unknown">Size unknown</string>
+    <string name="share_unsupported">Unsupported file type</string>
+    <string name="share_file_too_large">Exceeds 100 MiB</string>
+
+    <string name="kind_image">Image</string>
+    <string name="image_no_text">No text was recognized in this image.</string>
     <string name="process_text_action">Save to Jogakbo</string>
     <string name="app_name">Jogakbo</string>
     <string name="app_name_full">Jogakbo · 조각보</string>

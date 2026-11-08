@@ -23,7 +23,7 @@ user and fails with `NOT_APPROVED` (`JogakboUnavailableException.Reason.NOT_APPR
 
 Tools:
 
-- `search_notes(query?, kinds?, tags?, date_from?, date_to?, limit?)`: kinds `memo, link, youtube, audio`; tags
+- `search_notes(query?, kinds?, tags?, date_from?, date_to?, limit?)`: kinds `memo, link, youtube, audio, document, image`; tags
   comma-separated names (any of them; since app 0.2.0); dates `YYYY-MM-DD` on the creation date; no query lists the
   newest notes. Returns `note_id`, `title`, `kind`, `created`, `updated`, `url`, `tags` (shown tags), `snippet`, or
   `No matching notes.`.

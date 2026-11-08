@@ -219,10 +219,31 @@ class NotesTest {
         } finally { source.delete() }
     }
 
+    @Test fun imageImportHasImageKindAndPreservesEmptyOcr() = runBlocking {
+        val source = File(ctx.cacheDir, "blank-photo.png")
+        android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888).let { bitmap ->
+            source.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+        }
+        models.ocrOverride = { object : io.github.taehunkim.jogakbo.ml.OcrEngine {
+            override suspend fun recognize(bitmap: android.graphics.Bitmap) = ""
+        } }
+        try {
+            val id = repo.addDocument(Uri.fromFile(source))
+            assertEquals(NoteKind.IMAGE, dao.get(id)!!.kind)
+            SourceJob(ctx, dao, NoNet, models, settings, jobs, { repo.audioDir }).run(id)
+            val note = dao.get(id)!!
+            assertEquals(JobState.DONE, note.sourceState)
+            assertTrue(note.body.isEmpty())
+            assertNotNull(repo.docFile(note))
+            repo.delete(id)
+        } finally { source.delete() }
+    }
+
     @Test fun imageOriginalSurvivesBackup() = runBlocking {
         val file = File(repo.docDir, "backup-image.png").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
         val id = repo.createMemo("Image", "Recognized text")
-        dao.update(dao.get(id)!!.copy(kind = NoteKind.DOCUMENT, sourceMeta = JSONObject().put("docFile", file.name).toString()))
+        dao.update(dao.get(id)!!.copy(kind = NoteKind.IMAGE, sourceMeta = JSONObject().put("docFile", file.name).toString()))
         val zip = java.io.ByteArrayOutputStream()
         Backup(ctx, dao, { repo.audioDir }).export(zip, false, true)
         val other = androidx.room.Room.inMemoryDatabaseBuilder(ctx, io.github.taehunkim.jogakbo.data.db.AppDatabase::class.java).build()
@@ -230,6 +251,7 @@ class NotesTest {
             Backup(ctx, other.noteDao(), { repo.audioDir }).import(java.io.ByteArrayInputStream(zip.toByteArray()), "backup.zip")
             val restored = other.noteDao().all().first { it.uuid == dao.get(id)!!.uuid }
             assertEquals(JobState.DONE, restored.sourceState)
+            assertEquals(NoteKind.IMAGE, restored.kind)
             val original = File(repo.docDir, io.github.taehunkim.jogakbo.notes.Documents.fileName(restored)!!)
             assertTrue(original.readBytes().contentEquals(file.readBytes()))
             original.delete()
@@ -240,7 +262,7 @@ class NotesTest {
     @Test fun imageBackupCanOmitOriginalButRetainOcrText() = runBlocking {
         val file = File(repo.docDir, "omitted-image.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
         val id = repo.createMemo("Image", "Recognized words")
-        dao.update(dao.get(id)!!.copy(kind = NoteKind.DOCUMENT, sourceMeta = JSONObject().put("docFile", file.name).toString()))
+        dao.update(dao.get(id)!!.copy(kind = NoteKind.IMAGE, sourceMeta = JSONObject().put("docFile", file.name).toString()))
         val zip = ByteArrayOutputStream()
         Backup(ctx, dao, { repo.audioDir }).export(zip, false, true, includeDocuments = false)
         val other = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java).build()

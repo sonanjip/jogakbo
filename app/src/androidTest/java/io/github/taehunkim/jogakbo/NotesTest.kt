@@ -206,6 +206,22 @@ class NotesTest {
         assertTrue(JSONObject(api.runTool("search_in_note", args)).toString().contains("cobalt"))
     }
 
+    @Test fun imageOriginalSurvivesBackup() = runBlocking {
+        val file = File(repo.docDir, "backup-image.png").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
+        val id = repo.createMemo("Image", "Recognized text")
+        dao.update(dao.get(id)!!.copy(kind = NoteKind.DOCUMENT, sourceMeta = JSONObject().put("docFile", file.name).toString()))
+        val zip = java.io.ByteArrayOutputStream()
+        Backup(ctx, dao, { repo.audioDir }).export(zip, false, true)
+        val other = androidx.room.Room.inMemoryDatabaseBuilder(ctx, io.github.taehunkim.jogakbo.data.db.AppDatabase::class.java).build()
+        try {
+            Backup(ctx, other.noteDao(), { repo.audioDir }).import(java.io.ByteArrayInputStream(zip.toByteArray()), "backup.zip")
+            val restored = other.noteDao().all().first { it.uuid == dao.get(id)!!.uuid }
+            val original = File(repo.docDir, io.github.taehunkim.jogakbo.notes.Documents.fileName(restored)!!)
+            assertTrue(original.readBytes().contentEquals(file.readBytes()))
+            original.delete()
+        } finally { other.close(); file.delete() }
+    }
+
     @Test fun documentOriginalSurvivesBackupIncludingTextFiles() = runBlocking {
         val file = File(repo.docDir, "original-test.txt").apply { writeText("Original document text, kept with the note.") }
         val id = repo.createMemo("Document", "Extracted text")

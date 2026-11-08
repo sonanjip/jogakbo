@@ -92,6 +92,17 @@ class DocumentTest {
         assertTrue(r.markdown.contains("## Page 2") && r.markdown.contains("harbour inspection"))
     }
 
+    @Test fun imageIsReadByOcr() = runBlocking {
+        val f = File(dir, "photo.png")
+        Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).let { bitmap ->
+            f.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+        }
+        val result = extractor.extract(f, "png")
+        assertEquals(1, ocrCalls)
+        assertTrue(result.markdown.contains("harbour inspection"))
+    }
+
     @Test fun docxBecomesPageSections() = runBlocking {
         val f = File(dir, "memo.docx")
         ZipOutputStream(f.outputStream()).use { z ->

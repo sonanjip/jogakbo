@@ -23,3 +23,5 @@
 - Versions: the app in `app/build.gradle.kts` (`appVersionName`), the SDK in `sdk/build.gradle.kts`. A schema change
   needs `AppDatabase.VERSION` + a Migration + the schema JSON + a test; a chunking change bumps
   `NoteIndexer.NOTE_VERSION`.
+
+Share and image coverage includes selected-text navigation and stream deduplication in NavigationTest, image OCR in DocumentTest, and original-image backup in NotesTest. Run instrumentation on an emulator or device after building; OCR tests use a fake engine.

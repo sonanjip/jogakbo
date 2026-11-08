@@ -24,6 +24,7 @@ An AI note app for Android whose AI runs on the phone: memos you write, web page
 | Web pages | Share or paste a link: the article is extracted as Markdown and summarized |
 | YouTube | Title, channel, description and subtitles (manual or generated) are saved and summarized; tapping a subtitle line opens the video at that time |
 | Documents | Attach a text, Markdown, PDF, Word, PowerPoint, Excel or OpenDocument file (or share one to the app): the text is read (pages without a text layer by OCR in OndolSaem) and kept as sections per page, slide or sheet; long documents are summarized in parts, then the parts together, and every section is searchable |
+| Images and sharing | Select text or share text, audio, images and documents; multiple items create separate notes, and images are read by on-device OCR |
 | Recordings | Record in the app (the transcript appears line by line while recording) or import an audio file; the transcript is summarized; tap a line to play from there |
 | Summaries | Your own instructions for every summary and for each one; language of the original or of the app; summaries can be edited, and summarizing again asks before replacing an edited one |
 | Search | By meaning (embeddings made on the phone, at a time you choose: right away, while charging and unused, daily, or by hand; each note can override the default) and by words |
@@ -59,3 +60,5 @@ The backronym covers the whole name: **J**ournal **O**f **G**athered **A**udio, 
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Shared text can be edited as a memo; selected text can be sent through Android’s text actions. Share one or several audio, image or supported document files to create separate notes. Images are read with OndolSaem OCR and the original is kept with the note.

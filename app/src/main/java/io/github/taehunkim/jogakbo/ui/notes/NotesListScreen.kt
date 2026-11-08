@@ -87,6 +87,8 @@ sealed interface Shared {
     data class Text(val text: String) : Shared
     data class Audio(val uri: Uri) : Shared
     data class Document(val uri: Uri) : Shared
+    data class File(val uri: Uri, val audio: Boolean)
+    data class Batch(val files: List<File>, val texts: List<String>) : Shared
 }
 
 /** The notes, newest first; search by meaning and words; the + menu adds memos, links, recordings and audio files. */
@@ -118,6 +120,7 @@ fun NotesListScreen(
     var addLink by remember { mutableStateOf<String?>(null) }
     var addAudio by remember { mutableStateOf<Uri?>(null) }
     var addDocument by remember { mutableStateOf<Uri?>(null) }
+    var addBatch by remember { mutableStateOf<Shared.Batch?>(null) }
     val autoLink by c.settings.autoSummary(NoteKind.LINK).collectAsStateWithLifecycle(true)
     val autoAudio by c.settings.autoSummary(NoteKind.AUDIO).collectAsStateWithLifecycle(true)
     val autoDocument by c.settings.autoSummary(NoteKind.DOCUMENT).collectAsStateWithLifecycle(true)
@@ -128,6 +131,7 @@ fun NotesListScreen(
             is Shared.Link -> addLink = shared.url
             is Shared.Audio -> addAudio = shared.uri
             is Shared.Document -> addDocument = shared.uri
+            is Shared.Batch -> addBatch = shared
             is Shared.Text -> onNewMemo(shared.text)
             null -> return@LaunchedEffect
         }
@@ -231,6 +235,28 @@ fun NotesListScreen(
         ) { url, prompt, summarize, timing ->
             addLink = null
             scope.launch { val id = c.notes.addLink(url, prompt, summarize, timing); onMain { onOpen(id) } }
+        }
+    }
+    addBatch?.let { batch ->
+        AddDialog(title = stringResource(R.string.share_multiple_title, batch.files.size + batch.texts.size), initialUrl = null, askUrl = false,
+            defaultSummarize = autoDocument, defaultNow = defaultNow, onDismiss = { addBatch = null }) { _, prompt, summarize, timing ->
+            addBatch = null
+            scope.launch {
+                var failed = 0
+                for (text in batch.texts) {
+                    try { c.notes.createMemo("", text, summarize, prompt, timing) }
+                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared text", e) }
+                }
+                for (file in batch.files) {
+                    try {
+                        if (file.audio) c.notes.addAudio(file.uri, prompt, summarize, timing)
+                        else c.notes.addDocument(file.uri, prompt, summarize, timing)
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) { failed++; android.util.Log.w("Jogakbo", "Cannot import shared file", e) }
+                }
+                if (failed > 0) android.widget.Toast.makeText(ctx, res.getString(R.string.share_failed_count, failed), android.widget.Toast.LENGTH_LONG).show()
+            }
         }
     }
     addDocument?.let { uri ->

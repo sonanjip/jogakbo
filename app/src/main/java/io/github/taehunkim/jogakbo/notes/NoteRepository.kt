@@ -104,8 +104,11 @@ class NoteRepository(
         val ext = name.substringAfterLast('.', "").lowercase().takeIf { it.length in 2..5 } ?: "m4a"
         val fileName = "$uuid.$ext"
         withContext(Dispatchers.IO) {
-            context.contentResolver.openInputStream(uri)?.use { input -> File(audioDir, fileName).outputStream().use { input.copyTo(it) } }
-                ?: throw java.io.IOException("cannot open $uri")
+            val target = File(audioDir, fileName)
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } }
+                    ?: throw java.io.IOException("cannot open $uri")
+            } catch (e: Exception) { target.delete(); throw e }
         }
         val now = clock()
         val id = dao.insert(
@@ -131,9 +134,11 @@ class NoteRepository(
         val fileName = "$uuid.$ext"
         val size = withContext(Dispatchers.IO) {
             val target = File(docDir, fileName)
-            context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } }
-                ?: throw java.io.IOException("cannot open $uri")
-            target.length()
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } }
+                    ?: throw java.io.IOException("cannot open $uri")
+                target.length()
+            } catch (e: Exception) { target.delete(); throw e }
         }
         val now = clock()
         val meta = JSONObject(Timing.withOverride(summarize?.let { """{"summarize":$it}""" }, timing) ?: "{}")

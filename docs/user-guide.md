@@ -66,3 +66,7 @@ result cards open the note here. It is signed with the same key, so it connects 
 only the passages it needs (`search_in_note`) instead of reading everything.
 
 In a document note’s menu choose **Open original document** to open the saved file in another app. Export can include the original document files. Long-press notes in the list to select them, then choose **Ask in chat** (up to ten per chat). The detail menu also has this action. Legacy binary Office files (.doc/.xls/.ppt) and HWP are not supported. Text beyond the extraction limit stays only in the original file; summaries and search cover the extracted portion.
+
+### Share from other apps
+
+Select text and choose Jogakbo from the text actions, or share text, links, audio, images and supported documents to Jogakbo. Confirm the import options for files; a multiple-file share creates a separate note for each file. Images use on-device text recognition through OndolSaem. Open the original from the note menu. In Settings → Data, stored original sizes are shown and the backup option includes original documents and images; audio has its own option. Failed imports are reported and do not prevent other files in a batch from being imported.

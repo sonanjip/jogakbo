@@ -16,3 +16,5 @@
 - **Export**: the ZIP is written where you choose with the system file picker; it is not encrypted.
 
 Opening a saved document gives the chosen viewer a temporary read grant limited to that file through FileProvider. Exported ZIPs optionally include document originals in `docs/`, with extracted text kept in the Markdown note.
+
+Shared audio, documents and images are copied into private app storage when the import is confirmed. Image OCR runs through OndolSaem; the recognized text is stored in the note. Original images travel with the optional document originals in ZIP backups, and deleting the note deletes its local original.

@@ -261,6 +261,9 @@
     <string name="idle_preset_normal">보통</string>
     <string name="idle_preset_relaxed">느긋하게</string>
     <string name="idle_preset_rule">충전 중에 화면이 꺼진 지 %1$d분(배터리 90%% 이상), %2$d분(70~89%%), %3$d분(70%% 미만)이 지나면 시작합니다. 폰을 쓰면 멈춥니다.</string>
-    <string name="export_documents">첨부 문서 원본 포함</string>
+    <string name="export_documents">첨부 문서와 이미지 원본 포함</string>
     <string name="open_document">문서 원본 열기</string>
+    <string name="share_multiple_title">항목 %1$d개를 각각 노트로 추가</string>
+    <string name="share_failed_count">파일 %1$d개를 가져오지 못했습니다.</string>
+    <string name="storage_originals">저장된 원본: 문서·이미지 %1$s · 오디오 %2$s</string>
 </resources>

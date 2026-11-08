@@ -3,6 +3,7 @@ package io.github.taehunkim.jogakbo.docs
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.ImageDecoder
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
@@ -31,10 +32,26 @@ class ExtractedDocument(val title: String?, val units: Int, val markdown: String
 class DocumentExtractor(private val context: Context, private val ocr: suspend () -> Lease<OcrEngine>) {
     /** [progress] gets (units done, units total). Throws [FetchException] (with a message for the user) when nothing can be read. */
     suspend fun extract(file: File, ext: String, progress: (Int, Int) -> Unit = { _, _ -> }): ExtractedDocument = when (ext.lowercase()) {
+        "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif" -> image(file)
         "pdf" -> pdf(file, progress)
         "docx", "pptx", "xlsx", "odt", "odp", "ods" -> office(file, ext, progress)
         "txt", "md", "markdown", "text", "csv", "tsv", "log" -> plain(file)
         else -> throw FetchException(context.getString(R.string.doc_unsupported))
+    }
+
+    private suspend fun image(file: File): ExtractedDocument {
+        val bitmap = try {
+            ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
+                val largest = maxOf(info.size.width, info.size.height)
+                if (largest > 1600) decoder.setTargetSampleSize((largest + 1599) / 1600)
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            }
+        } catch (e: IOException) { throw FetchException(context.getString(R.string.doc_unreadable)) }
+        try {
+            val text = ocr().use { it.value.recognize(bitmap).trim() }
+            if (text.isEmpty()) throw FetchException(context.getString(R.string.doc_no_text))
+            return ExtractedDocument(null, 1, text.take(MAX_BODY_CHARS), text.length > MAX_BODY_CHARS, 1)
+        } finally { bitmap.recycle() }
     }
 
     private fun plain(file: File): ExtractedDocument {

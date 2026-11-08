@@ -57,8 +57,46 @@ class NavigationTest {
         rule.onNodeWithTag("tag_add").assertIsDisplayed()
         rule.onNodeWithTag("settings_tab_2").performClick()
         rule.onNodeWithTag("export").assertIsDisplayed()
+        rule.onNodeWithTag("storage_originals").assertIsDisplayed()
+        rule.onNodeWithTag("export_documents").assertIsDisplayed()
         rule.onNodeWithTag("settings_tab_3").performClick()
         rule.onNodeWithTag("conn_ondolsaem").assertIsDisplayed()
+    }
+
+    @Test fun sharedStreamsAreDeduplicatedAndRejectFileUris() {
+        val a = android.net.Uri.parse("content://example/one.png")
+        val b = android.net.Uri.parse("content://example/two.pdf")
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+            putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, arrayListOf(a, b))
+            clipData = android.content.ClipData.newUri(rule.activity.contentResolver, "one", a).apply {
+                addItem(android.content.ClipData.Item(android.net.Uri.parse("file:///unsafe")))
+            }
+        }
+        org.junit.Assert.assertEquals(listOf(a, b), rule.activity.sharedStreams(intent))
+    }
+
+    @Test fun multipleSharedTextsCreateSeparateNotes() {
+        val first = "share-one-${System.currentTimeMillis()}"
+        val second = "$first-second"
+        rule.activityRule.scenario.onActivity { activity ->
+            val clips = android.content.ClipData.newPlainText("first", first).apply {
+                addItem(android.content.ClipData.Item(second))
+            }
+            activity.startActivity(android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_SEND_MULTIPLE)
+                .setType("text/plain").setClipData(clips).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        rule.waitUntil(5000) { rule.onAllNodes(hasTestTag("add_confirm")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("add_confirm").performClick()
+        rule.waitUntil(10000) { runBlocking { c.db.noteDao().all().count { it.body == first || it.body == second } == 2 } }
+        runBlocking { c.db.noteDao().all().filter { it.body == first || it.body == second }.forEach { c.notes.delete(it.id) } }
+    }
+
+    @Test fun processTextOpensMemoEditor() {
+        rule.activityRule.scenario.onActivity { activity ->
+            activity.startActivity(android.content.Intent(activity, MainActivity::class.java).setAction(android.content.Intent.ACTION_PROCESS_TEXT).putExtra(android.content.Intent.EXTRA_PROCESS_TEXT, "Selected passage").addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        rule.waitUntil(5000) { rule.onAllNodes(hasTestTag("editor_text")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("editor_text").assertIsDisplayed()
     }
 
     @Test fun addLinkDialog() {

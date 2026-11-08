@@ -261,6 +261,9 @@
     <string name="idle_preset_normal">Normal</string>
     <string name="idle_preset_relaxed">Later</string>
     <string name="idle_preset_rule">Starts while charging once the screen has been off for %1$d min (battery 90%% or more), %2$d min (70–89%%) or %3$d min (below 70%%). Stops when you use the phone.</string>
-    <string name="export_documents">Include original document files</string>
+    <string name="export_documents">Include original document and image files</string>
     <string name="open_document">Open original document</string>
+    <string name="share_multiple_title">Add %1$d items as separate notes</string>
+    <string name="share_failed_count">Could not import %1$d files.</string>
+    <string name="storage_originals">Stored originals: documents and images %1$s · audio %2$s</string>
 </resources>

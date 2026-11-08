@@ -319,12 +319,22 @@ private fun DataTab() {
         }
     }
 
+    val notes by c.db.noteDao().observeAll().collectAsStateWithLifecycle(emptyList())
+    var storage by remember { mutableStateOf(0L to 0L) }
+    androidx.compose.runtime.LaunchedEffect(notes) {
+        storage = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            fun size(dir: java.io.File) = dir.listFiles()?.filter { it.isFile }?.sumOf { it.length() } ?: 0L
+            size(c.notes.docDir) to size(c.notes.audioDir)
+        }
+    }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    Text(stringResource(R.string.storage_originals, android.text.format.Formatter.formatFileSize(ctx, storage.first), android.text.format.Formatter.formatFileSize(ctx, storage.second)), modifier = Modifier.testTag("storage_originals"))
     Section(R.string.settings_export, R.string.settings_export_desc)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(includeSummaries, { includeSummaries = it }, modifier = Modifier.testTag("export_summaries")); Text(stringResource(R.string.export_summaries))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(includeDocuments, { includeDocuments = it }); Text(stringResource(R.string.export_documents))
+        Checkbox(includeDocuments, { includeDocuments = it }, modifier = Modifier.testTag("export_documents")); Text(stringResource(R.string.export_documents))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(includeAudio, { includeAudio = it }, modifier = Modifier.testTag("export_audio")); Text(stringResource(R.string.export_audio))

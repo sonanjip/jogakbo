@@ -18,7 +18,7 @@ with a chosen embedding time, ZIP/Markdown export and import, and the notes SDK 
 2. **Better summaries**: per-kind default prompts the user can edit; a summary that streams into the note while it is
    made; keep the map step's part notes for very long recordings.
 3. **Speaker turns** in recordings (diarization) and a live transcript that refines lines after the fact.
-4. **More sources**: PDFs and images shared to the app (OCR through OndolSaem), podcasts (audio URLs), web pages
+4. **More sources**: podcasts (audio URLs), web pages
    that need JavaScript.
 5. **Organizing**: folders, pinning, merging notes; related notes by meaning under each note (tags with automatic
    tagging are done in 0.2.0). Tags: let Malbotdari tag notes from the chat; tag images and audio once OndolSaem has a
@@ -45,3 +45,5 @@ with a chosen embedding time, ZIP/Markdown export and import, and the notes SDK 
   wrote a list).
 
 Document attachments now cover text/Markdown, PDF (text or OCR), OOXML and OpenDocument. Current limits: 400,000 extracted characters, 500 PDF pages, 400 Office units; full original is retained. Binary legacy Office/HWP and arbitrary-page image viewing from chat remain outside this implementation.
+
+Shared image originals now use the document pipeline and OndolSaem OCR. Recognition extracts text only; it does not describe image content.

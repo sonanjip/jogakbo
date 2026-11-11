@@ -12,9 +12,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToKey
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -63,6 +65,58 @@ class NavigationTest {
         rule.onNodeWithTag("export_documents").assertIsDisplayed()
         rule.onNodeWithTag("settings_tab_3").performClick()
         rule.onNodeWithTag("conn_ondolsaem").assertIsDisplayed()
+    }
+
+    @Test fun detailShowsProcessingStatesAndRunsOnlyTheSelectedOperation() {
+        val title = "Processing test ${System.currentTimeMillis()}"
+        val embedder = FakeEmbedder()
+        val decider = FakeDecider()
+        val text = FakeText()
+        val oldMode = runBlocking { c.settings.embedMode.first() }
+        val oldAutoTag = runBlocking { c.settings.autoTag.first() }
+        val oldEmbedId = runBlocking { c.settings.embeddingModelId.first() }
+        var id = 0L
+        var other = 0L
+        try {
+            runBlocking {
+                c.settings.setEmbedMode(io.github.taehunkim.jogakbo.data.prefs.EmbedMode.MANUAL)
+                c.settings.setAutoTag(false)
+                c.settings.setEmbeddingModelId("fake-emb")
+                c.models.embedderOverride = { embedder }
+                c.models.deciderOverride = { decider }
+                c.models.textOverride = { text }
+                id = c.notes.createMemo(title, "여행 계획을 적습니다. 노트별 처리가 다른 노트를 변경하지 않는지 확인할 긴 내용입니다.")
+                other = c.notes.createMemo("Other $title", "다른 노트")
+            }
+            rule.waitUntil(10000) { runCatching { rule.onNodeWithTag("notes_list").performScrollToKey(id); true }.getOrDefault(false) }
+            rule.onNodeWithText(title).performClick()
+            rule.onNodeWithTag("processing_summary").assertIsDisplayed()
+            rule.onNodeWithTag("processing_index").assertIsDisplayed()
+            rule.onNodeWithTag("processing_tags").assertIsDisplayed()
+            rule.onNodeWithTag("note_index_run").performClick()
+            rule.waitUntil(10000) { runBlocking { c.db.noteDao().get(id)?.embeddedAt != null } }
+            org.junit.Assert.assertNull(runBlocking { c.db.noteDao().get(other)!!.embeddedAt })
+            org.junit.Assert.assertEquals(0, decider.calls)
+            org.junit.Assert.assertTrue(text.calls.isEmpty())
+            rule.waitUntil(10000) { runCatching { rule.onNodeWithTag("note_tag_run").assertIsEnabled(); true }.getOrDefault(false) }
+            rule.onNodeWithTag("note_tag_run").performClick()
+            rule.waitUntil(10000) { runBlocking { c.db.noteDao().get(id)?.taggedAt != null } }
+            org.junit.Assert.assertNull(runBlocking { c.db.noteDao().get(other)!!.taggedAt })
+            org.junit.Assert.assertTrue(text.calls.isEmpty())
+            val before = decider.calls
+            rule.waitUntil(10000) { runCatching { rule.onNodeWithTag("note_tag_run").assertIsEnabled(); true }.getOrDefault(false) }
+            rule.onNodeWithTag("note_tag_run").performClick()
+            rule.waitUntil(10000) { decider.calls > before }
+        } finally {
+            runBlocking {
+                if (id > 0) c.notes.delete(id)
+                if (other > 0) c.notes.delete(other)
+                c.settings.setEmbedMode(oldMode)
+                c.settings.setAutoTag(oldAutoTag)
+                c.settings.setEmbeddingModelId(oldEmbedId)
+            }
+            c.models.embedderOverride = null; c.models.deciderOverride = null; c.models.textOverride = null
+        }
     }
 
     @Test fun sharedStreamsAreDeduplicatedAndRejectFileUris() {

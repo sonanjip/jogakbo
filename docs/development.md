@@ -27,3 +27,12 @@
 Share and image coverage includes selected-text navigation and stream deduplication in NavigationTest, image OCR and photos without text in DocumentTest, and original-image backup in NotesTest. Run instrumentation on an emulator or device after building; OCR tests use a fake engine.
 
 ShareCopyTest covers streaming limits without Android; NavigationTest covers exclusion and the ten-item selection limit. Image backup tests cover retaining and omitting originals.
+
+### Note processing regression coverage
+
+`NoteProcessingStatusTest` covers completion, stale indexes and negative/manual tag decisions.
+Instrumented `NoteProcessingTest` and the tag scenario in `NotesTest` use an in-memory Room database and fake models
+for missing-only decisions, explicit per-note indexing/tagging, preserving user choices and retaining old results on
+failure. `NavigationTest.detailShowsProcessingStatesAndRunsOnlyTheSelectedOperation` checks the detail actions with
+automatic processing off. Run builds with the emulator stopped; after all Gradle processes exit, run these alongside
+the default fake-model instrumentation suite on one emulator. Real-model tests are not needed for these changes.

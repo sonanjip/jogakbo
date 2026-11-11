@@ -17,6 +17,8 @@ class FakeJobs : NoteJobs {
     var changes = 0
     override fun fetchSource(noteId: Long, kind: NoteKind) { sources += noteId }
     override fun summarize(noteId: Long) { summaries += noteId }
+    override fun index(noteId: Long) {}
+    override fun tag(noteId: Long) {}
     override fun cancel(noteId: Long) {}
     override fun noteChanged() { changes++ }
 }

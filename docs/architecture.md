@@ -106,11 +106,22 @@ Playback (`ui/notes/AudioPlayer`, `MediaPlayer`) seeks when a cue is tapped; You
   tagging is on. It asks OndolSaem's decision model (`ModelHost.decider()`, category `decision`, SDK API 3) one
   question per tag in one call per note: premise = title + summary (or the start of the original, 1,500 characters,
   Markdown marks removed), statement = `Decisions.hypothesis(name, description)` ("이 글은 여행에 관한
-  내용이다."). P ≥ 0.70 is AUTO_YES (shown), ≥ 0.40 SUGGESTED (offered on the note), else AUTO_NO. A note is asked
-  again when it changed after `taggedAt`, or lacks an answer of the current decision model for some tag; MANUAL and
+  내용이다."). P ≥ 0.70 is AUTO_YES (shown), ≥ 0.40 SUGGESTED (offered on the note), else AUTO_NO. Routine passes ask only missing note/tag decisions, regardless of text changes, `taggedAt` or model id; MANUAL and
   REJECTED rows are never touched. Without a decision model nothing happens (and the embedding pass does not retry
   for it). On the emulator with the real model: 5 Korean notes × 7 example tags all right, no wrong tag, about 0.6 s
   per note (`RealModelTest`).
+
+- Explicit detail actions use `NoteWorker` jobs `index` and `tags`, unique per note/operation with KEEP semantics.
+  They call `NoteIndexer.embedOne` or `NoteTagger.tagOne(force = true)` and do not invoke other operations or notes.
+  Forced tagging computes replacements before saving, and `TagDao.replaceAuto` rechecks user choices in its
+  transaction so a choice made during inference wins. Failed explicit work retains old results and reports a reason
+  through WorkManager output. Note deletion cancels these workers through the existing per-note tag.
+- `AppContainer.processingLock` serializes `EmbedWorker` passes and `NoteWorker` work, including summaries and
+  source processing, to avoid overlapping model work. Bulk progress carries the active note id and stage.
+- `NoteProcessingStatus` derives persistent completion from existing fields and current tag answers, without a schema
+  change. The detail card overlays WorkManager queued/running/failure states; a newer successful result supersedes
+  an old failure. Request timestamps in work tags order explicit requests. Index completion uses the same model key
+  and text timestamp as indexing; tag completion counts all answer states, not only applied tags.
 
 ## Export and import (`io/`)
 

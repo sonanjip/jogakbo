@@ -293,4 +293,27 @@
     <string name="share_failed_count">Could not import %1$d files.</string>
     <string name="storage_originals">Stored originals: documents and images %1$s · audio %2$s</string>
     <string name="share_limits">Choose up to 10 items. Files are limited to 100 MiB each and 200 MiB in total.</string>
+
+    <!-- Per-note processing status and explicit actions. -->
+    <string name="note_processing_title">Processing status</string>
+    <string name="processing_index_label">Index</string>
+    <string name="processing_tags_label">Tags</string>
+    <string name="processing_index_run">Index</string>
+    <string name="processing_index_again">Index again</string>
+    <string name="processing_tags_run">Tag</string>
+    <string name="processing_tags_again">Tag again</string>
+    <string name="processing_none">Not completed</string>
+    <string name="processing_waiting">Waiting</string>
+    <string name="processing_running">In progress</string>
+    <string name="processing_done">Completed</string>
+    <string name="processing_failed">Failed</string>
+    <string name="processing_stale">Update needed</string>
+    <string name="processing_partial">Partly completed</string>
+    <string name="processing_no_tags">No tags registered</string>
+    <string name="processing_status">%1$s: %2$s</string>
+    <string name="processing_no_model">Prepare the model in OndolSaem, then try again.</string>
+    <string name="processing_index_no_model">An embedding model in OndolSaem is needed to index this note.</string>
+    <string name="processing_tags_no_model">A decision model in OndolSaem is needed to tag this note.</string>
+    <string name="processing_source_wait">Wait until the original is ready, then try again.</string>
+    <string name="processing_failed_hint">The operation failed. Previous results were kept. Try again.</string>
 </resources>

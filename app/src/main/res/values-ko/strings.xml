@@ -293,4 +293,27 @@
     <string name="share_failed_count">파일 %1$d개를 가져오지 못했습니다.</string>
     <string name="storage_originals">저장된 원본: 문서·이미지 %1$s · 오디오 %2$s</string>
     <string name="share_limits">최대 10개를 선택하세요. 파일은 각각 100 MiB, 전체 200 MiB까지 가져올 수 있습니다.</string>
+
+    <!-- Per-note processing status and explicit actions. -->
+    <string name="note_processing_title">처리 상태</string>
+    <string name="processing_index_label">인덱싱</string>
+    <string name="processing_tags_label">태깅</string>
+    <string name="processing_index_run">인덱싱 하기</string>
+    <string name="processing_index_again">인덱싱 다시 하기</string>
+    <string name="processing_tags_run">태깅 하기</string>
+    <string name="processing_tags_again">태깅 다시 하기</string>
+    <string name="processing_none">미완료</string>
+    <string name="processing_waiting">대기 중</string>
+    <string name="processing_running">진행 중</string>
+    <string name="processing_done">완료</string>
+    <string name="processing_failed">실패</string>
+    <string name="processing_stale">갱신 필요</string>
+    <string name="processing_partial">일부 완료</string>
+    <string name="processing_no_tags">등록된 태그 없음</string>
+    <string name="processing_status">%1$s: %2$s</string>
+    <string name="processing_no_model">온돌샘에서 모델을 준비한 뒤 다시 실행하세요.</string>
+    <string name="processing_index_no_model">인덱싱하려면 온돌샘의 임베딩 모델이 필요합니다.</string>
+    <string name="processing_tags_no_model">태깅하려면 온돌샘의 판단 모델이 필요합니다.</string>
+    <string name="processing_source_wait">원문 처리가 끝난 뒤 다시 실행하세요.</string>
+    <string name="processing_failed_hint">처리하지 못했습니다. 이전 결과는 유지됩니다. 다시 실행하세요.</string>
 </resources>

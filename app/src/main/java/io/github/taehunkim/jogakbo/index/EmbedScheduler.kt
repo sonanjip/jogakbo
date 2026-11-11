@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.withLock
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -118,6 +119,10 @@ class EmbedScheduler(private val context: Context, private val settings: Setting
 class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val c = (applicationContext as JogakboApp).container
+        return c.processingLock.withLock { runPass(c) }
+    }
+
+    private suspend fun runPass(c: io.github.taehunkim.jogakbo.AppContainer): Result {
         val source = inputData.getString(KEY_SOURCE)
         val idleRun = source == "idle"
         val auto = source == "auto"
@@ -143,7 +148,7 @@ class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
             for ((i, id) in ids.withIndex()) {
                 if (!keepGoing()) break
                 val title = dao.get(id)?.title.orEmpty()
-                report(STAGE_SUMMARY, i, ids.size, title)
+                report(STAGE_SUMMARY, i, ids.size, title, id)
                 runCatching { setForeground(summaryInfo(title, i, ids.size)) }
                 val ok = try { c.summaryJob.run(id, keepWaiting = true) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { true }
                 // the language model is out of reach: the rest would fail the same way; they wait for the next pass
@@ -152,11 +157,12 @@ class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
             }
         }
         report(STAGE_INDEX, 0, 0, "")
-        val pass = c.indexer.embedPending({ d, t -> runBlocking { report(STAGE_INDEX, d, t, "") }; if (t > 3) runCatching { runBlocking { setForeground(info(d, t)) } } }, keepGoing, accept)
+        var indexingNoteId = 0L
+        val pass = c.indexer.embedPending({ d, t -> runBlocking { report(STAGE_INDEX, d, t, "", indexingNoteId) }; if (t > 3) runCatching { runBlocking { setForeground(info(d, t)) } } }, keepGoing, accept, onNote = { noteId -> indexingNoteId = noteId; runBlocking { report(STAGE_INDEX, 0, 0, "", noteId) } })
         if (pass.embedded > 0 || summarized > 0) NotesEvents.notifyChanged(applicationContext)
         // tags follow the same timing; a missing decision model does not make the pass retry
         report(STAGE_TAGS, 0, 0, "")
-        val tagged = if (c.settings.autoTag.first() && keepGoing()) runCatching { c.tagger.tagPending(keepGoing = keepGoing, accept = accept) }.getOrNull() else null
+        val tagged = if (c.settings.autoTag.first() && keepGoing()) runCatching { c.tagger.tagPending(keepGoing = keepGoing, accept = accept, onNote = { noteId -> runBlocking { report(STAGE_TAGS, 0, 0, "", noteId) } }) }.getOrNull() else null
         if ((tagged?.tagged ?: 0) > 0 && pass.embedded == 0 && summarized == 0) NotesEvents.notifyChanged(applicationContext)
         val out = workDataOf(OUT_SUMMARIZED to summarized, OUT_EMBEDDED to pass.embedded, OUT_TAGGED to (tagged?.tagged ?: 0), OUT_BLOCKED to summariesBlocked)
         if (idleRun && !keepGoing()) return Result.success(out)
@@ -165,8 +171,8 @@ class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
         return if (again) Result.retry() else Result.success(out)
     }
 
-    private suspend fun report(stage: String, done: Int, total: Int, note: String) {
-        runCatching { setProgress(workDataOf(PROGRESS_STAGE to stage, PROGRESS_DONE to done, PROGRESS_TOTAL to total, PROGRESS_NOTE to note)) }
+    private suspend fun report(stage: String, done: Int, total: Int, note: String, noteId: Long = 0) {
+        runCatching { setProgress(workDataOf(PROGRESS_STAGE to stage, PROGRESS_DONE to done, PROGRESS_TOTAL to total, PROGRESS_NOTE to note, PROGRESS_NOTE_ID to noteId)) }
     }
 
     private fun summaryInfo(title: String, done: Int, total: Int) = Notifications.foregroundInfo(
@@ -182,7 +188,7 @@ class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
         if (embedId.isNotEmpty()) waiting += dao.needingEmbedding(NoteIndexer.key(embedId))
         val decisionId = c.settings.decisionModelId.first()
         val tagCount = c.db.tagDao().tags().size
-        if (c.settings.autoTag.first() && decisionId.isNotEmpty() && tagCount > 0) waiting += c.db.tagDao().needingTags(decisionId, tagCount)
+        if (c.settings.autoTag.first() && decisionId.isNotEmpty() && tagCount > 0) waiting += c.db.tagDao().needingTags()
         return waiting.any { id -> dao.get(id)?.let { Timing.override(it) == true } == true }
     }
 
@@ -197,6 +203,7 @@ class EmbedWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
         const val PROGRESS_DONE = "done"
         const val PROGRESS_TOTAL = "total"
         const val PROGRESS_NOTE = "note"
+        const val PROGRESS_NOTE_ID = "noteId"
         const val STAGE_SUMMARY = "summary"
         const val STAGE_INDEX = "index"
         const val STAGE_TAGS = "tags"

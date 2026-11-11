@@ -42,6 +42,8 @@ class AppContainer(val context: Context) {
     val settings = SettingsStore(context)
     /** Summaries, speech recognition and embeddings (OndolSaem). */
     val models = ModelHost(context, settings, appScope)
+    /** Serializes bulk and explicit note processing to avoid duplicate model work. */
+    val processingLock = kotlinx.coroutines.sync.Mutex()
     val http = UrlConnectionHttp()
     val embedScheduler = EmbedScheduler(context, settings, appScope)
     val jobs: NoteJobs = WorkJobs(context) { embedScheduler.onNoteChanged() }
@@ -100,7 +102,7 @@ class JogakboApp : Application() {
                 if (it.isNotEmpty() && container.settings.embedMode.first() == EmbedMode.IMMEDIATE) container.embedScheduler.runNow(5, auto = true)
             }
         }
-        // a new decision model answers again
+        // A newly available decision model can fill missing answers; existing answers stay.
         container.appScope.launch {
             container.settings.decisionModelId.distinctUntilChanged().drop(1).collect {
                 if (it.isNotEmpty() && container.settings.embedMode.first() == EmbedMode.IMMEDIATE) container.embedScheduler.runNow(5, auto = true)

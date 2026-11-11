@@ -132,6 +132,7 @@ fun NoteDetailScreen(noteId: Long, onBack: () -> Unit, onEdit: () -> Unit, onEdi
         Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Header(n)
             NoteTags(noteId)
+            NoteProcessingCard(n)
             SourceState(n) { scope.launch { c.notes.retrySource(noteId) } }
             SummaryCard(n, onSummarize = { summarizeDialog = true }, onEdit = onEditSummary)
             val audio = remember(n.audioFile) { c.notes.audioFile(n) }

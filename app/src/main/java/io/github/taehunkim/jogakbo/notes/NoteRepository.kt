@@ -21,6 +21,8 @@ import java.util.UUID
 interface NoteJobs {
     fun fetchSource(noteId: Long, kind: NoteKind)
     fun summarize(noteId: Long)
+    fun index(noteId: Long)
+    fun tag(noteId: Long)
     fun cancel(noteId: Long)
     /** A note's text changed: embed it when the user's setting says so. */
     fun noteChanged()

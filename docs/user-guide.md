@@ -34,6 +34,17 @@ appears as `#tag?`: tap to add it, × to decline. Tap × on a tag to take it off
 to tick. Tags you add or take off yourself are never changed again by the model. The chips under the kind filters show
 notes with any of the chosen tags.
 
+A note’s detail shows **Processing status** for its summary, search index and tags. The index shows *Update needed*
+when the text or embedding model changed. Tag completion counts every decision, including “no”, suggestions and your
+own choices; a note with no applied tags can still be fully processed. New or renamed/described tags leave missing
+decisions to fill. Text, summary and decision-model changes do not repeat saved tag decisions.
+
+Use the existing summary action, **Index / Index again**, or **Tag / Tag again** to run just that operation on this
+note, even when automatic processing is off. Tag again replaces only automatic decisions and keeps your own choices.
+A failed index/tag request keeps its previous results and shows a retry hint; prepare a missing model in OndolSaem
+and press the action again. Work continues after leaving the screen. **Tag all notes again** in Settings still
+requests a complete recheck of automatic decisions across notes.
+
 ## Search
 
 Type in the search field: notes match by words right away and by meaning once they are embedded (Settings ›

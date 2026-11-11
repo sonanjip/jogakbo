@@ -3,6 +3,8 @@ package io.github.taehunkim.jogakbo.index
 import io.github.taehunkim.jogakbo.data.db.ChunkEntity
 import io.github.taehunkim.jogakbo.data.db.NoteDao
 import io.github.taehunkim.jogakbo.data.db.NoteEntity
+import io.github.taehunkim.jogakbo.notes.ProcessingOutcome
+import io.github.taehunkim.jogakbo.data.db.JobState
 import io.github.taehunkim.jogakbo.ml.Embedder
 import io.github.taehunkim.jogakbo.ml.ModelHost
 import io.github.taehunkim.jogakbo.ml.Quant
@@ -27,6 +29,7 @@ class NoteIndexer(private val dao: NoteDao, private val models: ModelHost, priva
         onProgress: (Int, Int) -> Unit = { _, _ -> },
         keepGoing: () -> Boolean = { true },
         accept: (NoteEntity) -> Boolean = { true },
+        onNote: (Long) -> Unit = {},
     ): Pass {
         val lease = models.embedder(background = true) ?: return Pass(0, -1, noModel = true)
         lease.use { l ->
@@ -39,12 +42,22 @@ class NoteIndexer(private val dao: NoteDao, private val models: ModelHost, priva
                 if (!keepGoing()) break
                 val note = dao.get(id) ?: continue
                 if (!accept(note)) { skipped++; continue }
+                onNote(id)
                 onProgress(done, ids.size - skipped)
                 embed(note, l.value, key)
                 done++
             }
             return Pass(done, ids.size - done - skipped)
         }
+    }
+
+    /** Explicitly rebuild only this note, even if its current index is already complete. */
+    suspend fun embedOne(noteId: Long): ProcessingOutcome {
+        val note = dao.get(noteId) ?: return ProcessingOutcome.NOT_FOUND
+        if (note.sourceState !in setOf(JobState.NONE, JobState.DONE, JobState.FAILED)) return ProcessingOutcome.NOT_READY
+        val lease = models.embedder(background = true) ?: return ProcessingOutcome.NO_MODEL
+        lease.use { embed(note, it.value) }
+        return ProcessingOutcome.DONE
     }
 
     suspend fun embed(note: NoteEntity, embedder: Embedder, key: String = key(embedder.modelId)) {

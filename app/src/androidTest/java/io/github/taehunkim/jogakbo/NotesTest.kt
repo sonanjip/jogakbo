@@ -326,7 +326,7 @@ class NotesTest {
         } finally { db2.close() }
     }
 
-    @Test fun tagsAreDecidedKeptWhenTheUserChoseAndCheckedAgainAfterEdits() = runBlocking {
+    @Test fun tagsOnlyFillMissingAnswersAndKeepUserChoices() = runBlocking {
         val tagDao = db.tagDao()
         var changed = 0
         val tags = io.github.taehunkim.jogakbo.tags.TagRepository(tagDao, onTagsChanged = { changed++ })
@@ -344,17 +344,20 @@ class NotesTest {
         assertEquals(setOf("여행", "요리", "돈"), names(misc, io.github.taehunkim.jogakbo.data.db.TagState.SUGGESTED))
         assertEquals("nothing left", 0, tagger.tagPending().tagged)
 
-        // the user's choices stay through edits and other models
+        // Edits and summary changes keep completed decisions, including the user's choices.
         val food = tagDao.tagByName("요리")!!.id
         val travel = tagDao.tagByName("여행")!!.id
         tags.addToNote(trip, food); tags.removeFromNote(trip, travel)
         repo.updateMemo(trip, "제주 여행", "3박 4일 일정, 흑돼지 맛집")
-        assertEquals(1, tagger.tagPending().tagged)
+        repo.updateSummary(trip, "제주 여행 일정과 흑돼지 맛집 요약")
+        val beforeEditPass = decider.calls
+        assertEquals(0, tagger.tagPending().tagged)
+        assertEquals(beforeEditPass, decider.calls)
         assertEquals(setOf("요리"), names(trip, io.github.taehunkim.jogakbo.data.db.TagState.MANUAL))
         assertEquals(setOf("여행"), names(trip, io.github.taehunkim.jogakbo.data.db.TagState.REJECTED))
         assertEquals(setOf("돈"), names(trip, io.github.taehunkim.jogakbo.data.db.TagState.AUTO_NO))
 
-        // a new tag is checked on every note; editing a tag checks it again; a new model answers again
+        // New and renamed tags are checked, but a model change alone does not replace answers.
         tags.add("일정")
         assertEquals(2, tagger.tagPending().tagged)
         assertTrue("일정" in names(trip, io.github.taehunkim.jogakbo.data.db.TagState.AUTO_YES))
@@ -362,7 +365,7 @@ class NotesTest {
         tagger.tagPending()
         assertTrue("맛집" in names(trip, io.github.taehunkim.jogakbo.data.db.TagState.AUTO_YES))
         val other = io.github.taehunkim.jogakbo.tags.NoteTagger(dao, tagDao, { FakeDecider("other-nli") })
-        assertEquals(2, other.tagPending().tagged)
+        assertEquals(0, other.tagPending().tagged)
         // without a model nothing happens
         available = false
         tags.retagAll()

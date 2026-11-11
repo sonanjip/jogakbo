@@ -63,23 +63,25 @@ interface TagDao {
     @Query("DELETE FROM note_tags WHERE state IN ('AUTO_YES','SUGGESTED','AUTO_NO')")
     suspend fun clearAllAuto()
 
-    /**
-     * Notes the decision model should look at: finished notes changed since they were tagged, or lacking an answer
-     * of [modelId] (or the user's own) for some of the [tagCount] tags.
-     */
+    /** Finished notes with a missing decision for at least one current tag. All saved answers count. */
     @Query(
-        """SELECT id FROM notes WHERE sourceState IN ('NONE','DONE','FAILED') AND (taggedAt IS NULL OR taggedAt < updatedAt OR
-           (SELECT COUNT(*) FROM note_tags nt WHERE nt.noteId = notes.id AND (nt.state IN ('MANUAL','REJECTED') OR nt.modelId = :modelId)) < :tagCount)
+        """SELECT id FROM notes WHERE sourceState IN ('NONE','DONE','FAILED') AND EXISTS (
+           SELECT 1 FROM tags t WHERE NOT EXISTS (
+             SELECT 1 FROM note_tags nt WHERE nt.noteId = notes.id AND nt.tagId = t.id))
            ORDER BY updatedAt DESC""",
     )
-    suspend fun needingTags(modelId: String, tagCount: Int): List<Long>
+    suspend fun needingTags(): List<Long>
 
     @Query("UPDATE notes SET taggedAt = :at WHERE id = :id")
     suspend fun setTagged(id: Long, at: Long)
 
     @Transaction
-    suspend fun replaceAuto(noteId: Long, rows: List<NoteTagEntity>, at: Long) {
-        upsert(rows)
+    suspend fun replaceAuto(noteId: Long, rows: List<NoteTagEntity>, definitions: List<TagEntity>, at: Long) {
+        // A user may accept/decline a tag while inference runs. Their latest choice wins.
+        val protected = rows(noteId).filter { it.state.byUser }.map { it.tagId }.toSet()
+        val current = tags().associateBy { it.id }
+        val unchanged = definitions.filter { old -> current[old.id]?.let { it.name == old.name && it.description == old.description } == true }.map { it.id }.toSet()
+        upsert(rows.filter { it.tagId !in protected && it.tagId in unchanged })
         setTagged(noteId, at)
     }
 }

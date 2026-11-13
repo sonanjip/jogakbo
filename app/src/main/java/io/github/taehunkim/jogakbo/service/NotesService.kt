@@ -22,6 +22,9 @@ class NotesService : Service() {
             override fun notes(ids: LongArray): String { check.require(); return api.notes(ids) }
             override fun readNote(id: Long, maxChars: Int): String { check.require(); return api.readNote(id, maxChars) }
             override fun changesSince(cursor: Long, limit: Int): String { check.require(); return api.changesSince(cursor, limit) }
+            override fun createNote(audio: android.os.ParcelFileDescriptor, metaJson: String): String = logged("createNote") {
+                try { check.require(); api.createNote(audio, metaJson) } finally { runCatching { audio.close() } }
+            }
         }
     }
 

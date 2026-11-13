@@ -56,7 +56,8 @@ class SourceJob(
             when (note.kind) {
                 NoteKind.LINK -> link(note)
                 NoteKind.YOUTUBE -> video(note)
-                NoteKind.AUDIO -> audio(note, progress)
+                // arrived with its transcript (another app): nothing to recognise, only the summary may follow
+                NoteKind.AUDIO -> if (meta(note).optBoolean("transcribed")) dao.setSourceState(noteId, JobState.DONE) else audio(note, progress)
                 NoteKind.DOCUMENT, NoteKind.IMAGE -> document(note, progress)
                 NoteKind.MEMO -> dao.setSourceState(noteId, JobState.NONE)
             }

@@ -25,13 +25,15 @@ object Jogakbo {
     const val ACTION_APPROVE = "$PACKAGE.action.APPROVE"
 
     /** API level of this SDK. Bump it whenever a method or JSON field is added, and note the level on it ([Api]). */
-    const val API_VERSION = Api.V1
+    const val API_VERSION = Api.V2
 
     val SDK_VERSION: String get() = BuildConfig.SDK_VERSION
 
     object Api {
         /** hello, tools, runTool, notes, readNote, changesSince. */
         const val V1 = 1
+        /** createNote: an audio note that arrives with its transcript. */
+        const val V2 = 2
     }
 
     /** Tool names Jogakbo offers (API 1). */

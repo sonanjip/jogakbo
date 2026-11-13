@@ -12,7 +12,7 @@
   `files/audio`, attached documents in `files/docs` (original files, kept for the user; their text is in the note), and a raw PCM file in `files/rec` during a recording (deleted when it ends). App data is excluded
   from Android backup (`allowBackup=false`); export is the way to keep a copy.
 - **Other apps**: apps signed with Jogakbo's key (Malbotdari) can search and read notes; any other app must be
-  allowed by you in Settings › Connections. They get note text, never files.
+  allowed by you in Settings › Connections. They get note text, never files. An allowed app can also add voice notes (audio + transcript, API 2); it cannot change or delete existing notes.
 - **Export**: the ZIP is written where you choose with the system file picker; it is not encrypted.
 
 Opening a saved document gives the chosen viewer a temporary read grant limited to that file through FileProvider. Exported ZIPs optionally include document originals in `docs/`, with extracted text kept in the Markdown note.

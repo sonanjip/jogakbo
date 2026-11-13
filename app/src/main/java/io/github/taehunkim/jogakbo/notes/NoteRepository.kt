@@ -4,6 +4,8 @@ import org.json.JSONObject
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import io.github.taehunkim.jogakbo.audio.Cue
+import io.github.taehunkim.jogakbo.data.db.CueEntity
 import io.github.taehunkim.jogakbo.data.db.JobState
 import io.github.taehunkim.jogakbo.data.db.NoteDao
 import io.github.taehunkim.jogakbo.data.db.NoteEntity
@@ -121,6 +123,39 @@ class NoteRepository(
                 createdAt = now, updatedAt = now,
             ),
         )
+        jobs.fetchSource(id, NoteKind.AUDIO)
+        return id
+    }
+
+    /**
+     * An audio note from another app (Dorangori): [audio] is copied into the app and [cues] are its transcript, so the note
+     * is complete at once and the speech is not recognised again. The source job only starts the summary, as for any note.
+     */
+    suspend fun addAudioWithTranscript(
+        audio: java.io.InputStream, ext: String, title: String, cues: List<Cue>, durationMs: Long,
+        recordedAt: Long?, origin: String?, summarize: Boolean?,
+    ): Long {
+        val uuid = UUID.randomUUID().toString()
+        val fileName = "$uuid.$ext"
+        withContext(Dispatchers.IO) {
+            val target = File(audioDir, fileName)
+            try { target.outputStream().use { audio.copyTo(it) } } catch (e: Exception) { target.delete(); throw e }
+        }
+        val now = clock()
+        val meta = org.json.JSONObject().put("transcribed", true)
+        origin?.let { meta.put("origin", it) }
+        recordedAt?.let { meta.put("recordedAt", it) }
+        summarize?.let { meta.put("summarize", it) }
+        val usable = cues.filter { it.text.isNotBlank() }
+        val id = dao.insert(
+            NoteEntity(
+                uuid = uuid, kind = NoteKind.AUDIO, title = title.ifBlank { titleFor("", "", recordedAt ?: now) },
+                body = if (usable.isEmpty()) "*${context.getString(io.github.taehunkim.jogakbo.R.string.audio_no_speech)}*" else Bodies.transcript(usable),
+                audioFile = fileName, durationMs = durationMs, sourceState = JobState.QUEUED, sourceMeta = meta.toString(),
+                createdAt = now, updatedAt = now,
+            ),
+        )
+        if (usable.isNotEmpty()) dao.insertCues(usable.mapIndexed { i, c -> CueEntity(noteId = id, ordinal = i, startMs = c.startMs, endMs = c.endMs, text = c.text.trim()) })
         jobs.fetchSource(id, NoteKind.AUDIO)
         return id
     }

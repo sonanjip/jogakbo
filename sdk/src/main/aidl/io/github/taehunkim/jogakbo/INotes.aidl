@@ -1,5 +1,7 @@
 package io.github.taehunkim.jogakbo;
 
+import android.os.ParcelFileDescriptor;
+
 /**
  * Jogakbo's notes as a bound service (action Jogakbo.ACTION_BIND), for apps the user allowed (an assistant chat).
  * Everything stays on the phone: the caller gets note text and ids.
@@ -38,4 +40,12 @@ interface INotes {
      * Returns {"ids":[...],"cursor":N}; pass the cursor back next time.
      */
     String changesSince(long cursor, int limit) = 7;
+
+    /**
+     * API 2. Adds an audio note whose transcript the caller already has, so Jogakbo does not recognise it again. audio: the
+     * recording (any format the phone plays, read once). metaJson: {"title","cues":[{"s","e","t"}](ms),"durationMs",
+     * "recordedAt"(epoch ms),"ext"("m4a"),"summarize"(bool, optional),"origin"(optional)}. Returns {"note_id":N}.
+     * Throws BAD_INPUT for unusable input.
+     */
+    String createNote(in ParcelFileDescriptor audio, String metaJson) = 8;
 }

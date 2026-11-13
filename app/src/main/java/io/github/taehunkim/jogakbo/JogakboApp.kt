@@ -60,7 +60,7 @@ class AppContainer(val context: Context) {
     val callerCheck by lazy {
         CallerCheck(context, approvals).apply { onRequest = { pkg -> Notifications.approvalRequest(context, appLabel(pkg)) } }
     }
-    val notesApi by lazy { NotesApi(db.noteDao(), search, BuildConfig.VERSION_NAME, tags = db.tagDao()) }
+    val notesApi by lazy { NotesApi(db.noteDao(), search, BuildConfig.VERSION_NAME, tags = db.tagDao(), repo = notes) }
 
     /** The name another app shows in the launcher (its package name if it has none). */
     fun appLabel(pkg: String): String = runCatching {

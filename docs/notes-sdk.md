@@ -38,6 +38,18 @@ Tools:
 `Jogakbo.ACTION_NOTES_CHANGED` is broadcast explicitly to apps with a receiver (the SDK declares
 `NotesChangedReceiver`; set its `handler` in `Application.onCreate`). `Jogakbo.openNoteIntent(id)` opens a note.
 
+## API 2: `createNote` (SDK 0.2.0, app 0.7.0)
+
+| Method | Returns |
+|---|---|
+| `createNote(audio: ParcelFileDescriptor, metaJson)` | `{"note_id"}` |
+
+`metaJson`: `{"title","cues":[{"s","e","t"}](ms),"durationMs","recordedAt"?,"ext"?("m4a"),"summarize"?,"origin"?}` (`NewAudioNote` in the
+SDK builds it). Jogakbo copies the audio and makes ONE audio note: the transcript is the original (timed lines as cues), and the speech is
+not recognised again (the note's `sourceMeta` carries `"transcribed": true`, so the source job only starts the summary when the settings or
+`summarize` ask for one). Same access rules as every call (a first call from an unknown app waits for approval). Bad input: `BAD_INPUT`.
+An older Jogakbo answers `HOST_TOO_OLD`.
+
 ## Client
 
 ```kotlin
@@ -45,6 +57,7 @@ val client = JogakboClient(context)
 val tools = client.tools()                       // for the chat model
 val out = client.runTool("search_notes", """{"query":"tea"}""")
 val text = client.readNote(id, 4000)
+val noteId = client.createAudioNote(file, NewAudioNote(title, cues, durationMs, recordedAtMs, origin = "dorangori")) // API 2
 ```
 
 Calls are suspend functions on `Dispatchers.IO`; the client binds lazily, retries once after Jogakbo's process died

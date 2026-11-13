@@ -140,7 +140,9 @@ file name). Imported notes are embedded by the scheduler.
 See [notes-sdk.md](notes-sdk.md). `NotesService` (exported, action `io.github.taehunkim.jogakbo.action.BIND`) checks
 every call with `CallerCheck` (same signing key: allowed; others: a request recorded in `Approvals`, a notification,
 and refusal until the user allows the app in Settings › Connections). `NotesApi` is the logic. `NotesEvents`
-broadcasts `NOTES_CHANGED` (no data) after changes and embedding passes.
+broadcasts `NOTES_CHANGED` (no data) after changes and embedding passes. API 2 `createNote` lets an allowed app (Dorangori) add an audio note
+with its transcript: `NoteRepository.addAudioWithTranscript` copies the audio, stores the transcript as the original and cues, and marks
+`sourceMeta.transcribed`, so `SourceJob` skips recognition and only starts the summary.
 
 ## UI (`ui/`)
 

@@ -22,6 +22,7 @@ import java.util.TimeZone
 class NotesApi(
     private val dao: NoteDao, private val search: NoteSearch, private val appVersion: String, private val zone: TimeZone = TimeZone.getDefault(),
     private val tags: io.github.taehunkim.jogakbo.data.db.TagDao? = null,
+    private val repo: io.github.taehunkim.jogakbo.notes.NoteRepository? = null,
 ) {
     fun hello(clientJson: String): String {
         val api = runCatching { JSONObject(clientJson).optInt("api") }.getOrDefault(0)
@@ -109,6 +110,22 @@ class NotesApi(
 
     fun readNote(id: Long, maxChars: Int): String = runBlocking {
         dao.get(id)?.let { markdown(it).take(maxChars.coerceIn(0, MAX_TEXT)) } ?: ""
+    }
+
+    /** API 2: an audio note that comes with its transcript (see INotes.createNote). */
+    fun createNote(audio: android.os.ParcelFileDescriptor, metaJson: String): String {
+        val note = io.github.taehunkim.jogakbo.sdk.NewAudioNote.parse(metaJson) ?: throw JogakboErrors.encode(Jogakbo.Errors.BAD_INPUT, "bad metaJson")
+        val repo = repo ?: throw JogakboErrors.encode(Jogakbo.Errors.BAD_INPUT, "notes unavailable")
+        val id = runBlocking {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(audio).use { input ->
+                repo.addAudioWithTranscript(
+                    input, note.ext, note.title,
+                    note.cues.map { io.github.taehunkim.jogakbo.audio.Cue(it.startMs, it.endMs, it.text) },
+                    note.durationMs, note.recordedAtMs, note.origin, note.summarize,
+                )
+            }
+        }
+        return JSONObject().put("note_id", id).toString()
     }
 
     fun changesSince(cursor: Long, limit: Int): String = runBlocking {

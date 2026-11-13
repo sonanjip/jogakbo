@@ -99,6 +99,16 @@ class JogakboClient(
         NoteChanges((0 until arr.length()).map { arr.getLong(it) }, o.optLong("cursor", cursor))
     }
 
+    /**
+     * API 2. Adds [audio] with its transcript as one note and returns the note's id. Needs Jogakbo with API 2 (older:
+     * [JogakboUnavailableException.Reason.HOST_TOO_OLD]). The user must have allowed this app (see [Jogakbo.approvalIntent]).
+     */
+    suspend fun createAudioNote(audio: java.io.File, note: NewAudioNote): Long = call(minApi = Jogakbo.Api.V2) { s ->
+        android.os.ParcelFileDescriptor.open(audio, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+            JSONObject(s.createNote(pfd, note.toJson())).getLong("note_id")
+        }
+    }
+
     /** Unbinds now. Later calls bind again. */
     fun disconnect() { scope.launch { lock.withLock { disconnectLocked() } } }
 

@@ -31,7 +31,7 @@ An AI note app for Android whose AI runs on the phone: memos you write, web page
 | Tags | Your own tags (examples included: work, study, ideas, travel, health, money, cooking), each with an optional description. OndolSaem's decision model checks every note against every tag at the embedding time; unsure tags are offered on the note; tags you add or remove stay. Filter the list by tag |
 | Processing status | Each note’s detail shows summary, index and tag completion, with individual run/redo actions. Routine tagging fills missing decisions only; text or model changes keep saved decisions |
 | Export and import | A ZIP with one Markdown file per note (with its tags) and the tag list (and the audio if you like); imports such a ZIP or any Markdown or text file (tags in front matter are read too) |
-| Other apps | Malbotdari (and apps you allow) search and read notes through the SDK (`:sdk`) |
+| Other apps | Malbotdari (and apps you allow) search and read notes through the SDK (`:sdk`); Dorangori adds voice notes with their transcript |
 
 English and Korean UI, dark mode.
 
